@@ -122,7 +122,7 @@ angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
                 var toExpand = pathsToExpand[0];
                 if (toExpand) {
                     var association = theModel.getAssociationByAlias(toExpand);
-                    var model = coma.getModel(association.modelName);
+                    var model = association.getModel();
                     if (association && model) {
                         tables.push(model.dataSourceName);
                         if (pathsToExpand.length > 1) {
@@ -157,7 +157,7 @@ angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
 
                 if (toExpand) {
                     var association = theModel.getAssociationByAlias(toExpand);
-                    var model = coma.getModel(association.modelName);
+                    var model = association.getModel();
                     if (association && model) {
                         var store = tx.objectStore(model.dataSourceName);
                         var req;
@@ -180,7 +180,7 @@ angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
                                 dfd.reject(this.error);
                             };
                         } else if (association.type === 'hasMany') {
-                            var index = store.index(association.foreignKey);
+                            var index = store.index(association.mappedBy);
                             req = index.openCursor();
                             var results = [];
 

@@ -21,7 +21,7 @@ angular.module('comaDemo').factory('Person', [
                     getDefaultValue: function () {
                         return new Date();
                     },
-                    index: "date"
+                    index: true
                 }
             },
             associations: [

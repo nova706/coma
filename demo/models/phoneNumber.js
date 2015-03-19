@@ -20,8 +20,7 @@ angular.module('comaDemo').factory('PhoneNumber', [
                 {
                     hasOne: 'person',
                     as: 'person',
-                    foreignKey: 'personId',
-                    foreignKeyType: 'String'
+                    foreignKey: 'personId'
                 }
             ]
         });

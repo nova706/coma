@@ -1,12 +1,18 @@
 angular.module('coma').factory("comaBaseModelService", [
+    '$injector',
     '$log',
     '$q',
     'comaPreparedQueryOptions',
     'comaPredicate',
 
-    function ($log, $q, PreparedQueryOptions, Predicate) {
-        var baseModelService = {};
+    function ($injector, $log, $q, PreparedQueryOptions, Predicate) {
+        var baseModelService = {
+            dirtyCheckThreshold: 30,
+            defaultAdapter: {},
+            models: {}
+        };
 
+        // Bubbles an error promise to the top.
         var propagateError = function (e) {
             return $q.reject(e);
         };
@@ -26,8 +32,156 @@ angular.module('coma').factory("comaBaseModelService", [
             angular.extend(this, response);
         };
 
-        // TODO: Validated the model definition
-        baseModelService.defineModel = function (modelDefinition, adapter, config, getModel) {
+        /**
+         * Model Field class to make all model fields consistent
+         * @param {String} name
+         * @param {Object | String} definition The Field Definition or the Field Type
+         * @constructor
+         */
+        var ModelField = function (name, definition) {
+            this.invalid = false;
+            this.name = name;
+
+            if (typeof definition === 'string') {
+                this.type = definition;
+                this.primaryKey = false;
+                this.unique = false;
+                this.index = false;
+                this.notNull = false;
+            } else {
+                this.type = definition.type;
+                this.primaryKey = definition.primaryKey === true;
+                this.unique = definition.unique === true;
+                this.index = (typeof definition.index === 'string') ? definition.index : (definition.index === true) ? name : false;
+                this.notNull = definition.notNull === true;
+
+                if (typeof definition.getDefaultValue === 'function') {
+                    this.getDefaultValue = definition.getDefaultValue;
+                }
+            }
+
+            // The adapter or the adapter's handler should enforce uniqueness of the primary key.
+            // The index on the primary key should be handled automatically without needing to specify an index.
+            // In order to pass validation during creation, the primary key should not be set as notNull.
+            // This of course should be enforced by the adapter or the adapter's handler.
+            if (this.primaryKey) {
+                this.notNull = false;
+                this.unique = false;
+                this.index = false;
+            }
+
+            // TODO: Better field validation
+            if (!this.name || !this.type) {
+                this.invalid = true;
+                $log.error('BaseModelService: Define Model Field', 'The field definition is invalid', this, definition);
+            }
+        };
+
+        /**
+         * Has One Association class
+         * @param {Object} definition
+         * @constructor
+         */
+        var HasOneAssociation = function (definition) {
+            this.invalid = false;
+            this.type = 'hasOne';
+
+            this.modelName = definition.modelName || definition.hasOne;
+            this.alias = definition.as || this.modelName;
+            this.foreignKey = definition.foreignKey;
+            this.getModel = function () {
+                return baseModelService.getModel(this.modelName);
+            };
+
+            if (!this.modelName || !this.foreignKey) {
+                $log.error('BaseModelService: HasOneAssociation', 'The association definition is invalid', definition);
+                this.invalid = true;
+            }
+        };
+
+        /**
+         * Has Many Association class
+         * @param {Object} definition
+         * @constructor
+         */
+        var HasManyAssociation = function (definition) {
+            this.invalid = false;
+            this.type = 'hasMany';
+
+            this.modelName = definition.modelName || definition.hasMany;
+            this.alias = definition.as || this.modelName;
+            this.mappedBy = definition.mappedBy;
+            this.getModel = function () {
+                return baseModelService.getModel(this.modelName);
+            };
+
+            if (!this.modelName || !this.mappedBy) {
+                $log.error('BaseModelService: HasManyAssociation', 'The association definition is invalid', definition);
+                this.invalid = true;
+            }
+        };
+
+        /**
+         * Set the dirty check threshold used by the entity dirty checking
+         * @param {Number} dirtyCheckThreshold in Milliseconds
+         */
+        baseModelService.setDirtyCheckThreshold = function (dirtyCheckThreshold) {
+            baseModelService.dirtyCheckThreshold = dirtyCheckThreshold;
+        };
+
+        /**
+         * Sets the default adapter to use when one is not supplied when defining the model.
+         * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
+         */
+        baseModelService.setDefaultAdapter = function (adapter) {
+            baseModelService.defaultAdapter = adapter;
+        };
+
+        /**
+         * Get an array of the defined Models.
+         * @returns {Entity[]} The models
+         */
+        baseModelService.getModels = function () {
+            var theModels = [];
+            var model;
+            for (model in baseModelService.models) {
+                if (baseModelService.models.hasOwnProperty(model)) {
+                    theModels.push(baseModelService.models[model]);
+                }
+            }
+            return theModels;
+        };
+
+        /**
+         * Gets a defined model by its name
+         * @param {String} modelName
+         * @returns {Entity} The model or null if the model is not found
+         */
+        baseModelService.getModel = function (modelName) {
+            return baseModelService.models[modelName] || null;
+        };
+
+        /**
+         * Creates a model based on a definition.
+         * @param {Object} modelDefinition The definition of the model including fields and associations
+         * @param {Object} adapter The adapter that is used to perform the CRUD actions
+         * @returns {Entity} The model
+         */
+        baseModelService.defineModel = function (modelDefinition, adapter) {
+            adapter = adapter || baseModelService.defaultAdapter;
+
+            // If the adapter is a string, assume it is the name of the adapter factory and inject it
+            adapter = (typeof adapter === 'string') ? $injector.get(adapter) : adapter;
+
+            // TODO: Validated the model definition
+            if (!modelDefinition || !modelDefinition.name) {
+                return null;
+            }
+
+            // If the model is already defined, just return it.
+            if (baseModelService.models[modelDefinition.name]) {
+                return baseModelService.models[modelDefinition.name];
+            }
 
             /**
              * An Entity is an object that represents an instance of a Model. The class has basic CRUD operations as
@@ -55,30 +209,22 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.fields = {};
             Entity.associations = [];
             Entity.primaryKeyFieldName = null;
-            Entity.name = modelDefinition.name;
+            Entity.modelName = modelDefinition.name;
             Entity.dataSourceName = modelDefinition.dataSourceName || modelDefinition.name;
 
             var initializeEntityFields = function () {
                 var field;
+                var modelField;
                 for (field in modelDefinition.fields) {
                     if (modelDefinition.fields.hasOwnProperty(field)) {
-                        if (typeof modelDefinition.fields[field] === "string") {
-                            Entity.fields[field] = {
-                                type: modelDefinition.fields[field],
-                                unique: false,
-                                index: false
-                            };
-                        } else {
-                            Entity.fields[field] = modelDefinition.fields[field];
-                            if (modelDefinition.fields[field].primaryKey) {
-                                Entity.primaryKeyFieldName = field;
-                            }
-                            if (Entity.fields[field].unique !== true) {
-                                Entity.fields[field].unique = false;
-                            }
-                            if (!Entity.fields[field].index) {
-                                Entity.fields[field].index = false;
-                            }
+                        modelField = new ModelField(field, modelDefinition.fields[field]);
+
+                        if (modelField.primaryKey) {
+                            Entity.primaryKeyFieldName = field;
+                        }
+
+                        if (!modelField.invalid) {
+                            Entity.fields[field] = modelField;
                         }
                     }
                 }
@@ -91,28 +237,28 @@ angular.module('coma').factory("comaBaseModelService", [
                     return;
                 }
                 var i;
+                var association;
                 for (i = 0; i < modelDefinition.associations.length; i++) {
-                    if (typeof modelDefinition.associations[i].hasOne === 'string' && modelDefinition.associations[i].foreignKey) {
-                        Entity.associations.push({
-                            modelName: modelDefinition.associations[i].hasOne,
-                            type: 'hasOne',
-                            alias: modelDefinition.associations[i].as || modelDefinition.associations[i].hasOne,
-                            foreignKey: modelDefinition.associations[i].foreignKey,
-                            foreignKeyType: modelDefinition.associations[i].foreignKeyType
-                        });
-                        Entity.fields[modelDefinition.associations[i].foreignKey] = {
-                            type: modelDefinition.associations[i].foreignKeyType,
-                            unique: modelDefinition.associations[i].unique === false,
-                            index: modelDefinition.associations[i].foreignKey
-                        };
+                    if (typeof modelDefinition.associations[i].hasOne === 'string') {
+                        association = new HasOneAssociation(modelDefinition.associations[i]);
                     } else if (typeof modelDefinition.associations[i].hasMany === 'string') {
-                        Entity.associations.push({
-                            modelName: modelDefinition.associations[i].hasMany,
-                            type: 'hasMany',
-                            alias: modelDefinition.associations[i].as || modelDefinition.associations[i].hasMany,
-                            foreignKey: modelDefinition.associations[i].mappedBy,
-                            foreignKeyType: Entity.fields[Entity.primaryKeyFieldName].type
-                        });
+                        association = new HasManyAssociation(modelDefinition.associations[i]);
+                    }
+
+                    if (association && !association.invalid) {
+                        if (association.type === 'hasOne') {
+                            if (!Entity.fields[association.foreignKey]) {
+                                // If no field is defined for the foreign key, define one assuming the same foreign key type.
+                                Entity.fields[association.foreignKey] = new ModelField(association.foreignKey, {
+                                    type: Entity.fields[Entity.primaryKeyFieldName].type,
+                                    index: association.foreignKey
+                                });
+                            } else {
+                                Entity.fields[association.foreignKey].index = association.foreignKey;
+                            }
+                        }
+
+                        Entity.associations.push(association);
                     }
                 }
             };
@@ -169,7 +315,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 var a;
                 for (i = 0; i < Entity.associations.length; i++) {
                     alias = Entity.associations[i].alias;
-                    ForeignModel = getModel(Entity.associations[i].modelName);
+                    ForeignModel = Entity.associations[i].getModel();
 
                     if (Entity.associations[i].type === 'hasOne') {
                         if (modelEntity[alias] !== undefined && includeExpandedAssociations !== false) {
@@ -350,7 +496,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 var self = this;
                 var association = Entity.getAssociationByAlias(associationName);
                 if (association) {
-                    var Model = getModel(association.modelName);
+                    var Model = association.getModel();
                     if (Model && association.type === 'hasOne' && self[association.foreignKey] !== undefined) {
                         adapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (result) {
                             self[association.alias] = Model.getRawModelObject(result);
@@ -551,7 +697,7 @@ angular.module('coma').factory("comaBaseModelService", [
 
                 var now = new Date().getTime();
                 var delta = now - this.$entity.lastDirtyCheck;
-                if (this.$entity.lastDirtyCheck && delta < config.dirtyCheckThreshold) {
+                if (this.$entity.lastDirtyCheck && delta < baseModelService.dirtyCheckThreshold) {
                     return this.$entity.lastDirtyState;
                 }
 
@@ -618,6 +764,8 @@ angular.module('coma').factory("comaBaseModelService", [
                 $log.debug("BaseModelService: $reset", this[Entity.primaryKeyFieldName], changedProperties);
                 return changedProperties;
             };
+
+            baseModelService.models[Entity.modelName] = Entity;
 
             return Entity;
         };
