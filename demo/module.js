@@ -2,9 +2,11 @@
  * Define the Angular Module and any required dependencies
  */
 angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB']).config([
+    'comaProvider',
     'comaIndexedDBAdapterProvider',
 
-    function (comaIndexedDBAdapterProvider) {
+    function (comaProvider, comaIndexedDBAdapterProvider) {
+        comaProvider.setAdapter('comaIndexedDBAdapter');
         comaIndexedDBAdapterProvider.setDbName("comaDemo");
         comaIndexedDBAdapterProvider.setDbVersion(1);
     }

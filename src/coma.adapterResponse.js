@@ -1,10 +1,12 @@
 angular.module('coma').factory("comaAdapterResponse", [
     function () {
 
-        var AdapterResponse = function (data, count, status) {
+        var AdapterResponse = function (data, count, status, headers, config) {
             this.data = data;
             this.count = count;
             this.status = status || AdapterResponse.OK;
+            this.headers = headers;
+            this.config = config;
         };
 
         AdapterResponse.OK = 200;

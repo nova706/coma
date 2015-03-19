@@ -343,6 +343,7 @@ angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
                             dfd.resolve(response);
                         }, function (e) {
                             response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
+                            $log.debug('IndexedDBAdapter: FindOne', response, pk, queryOptions, theModel);
                             dfd.reject(response);
                         });
                     };
