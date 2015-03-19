@@ -26,14 +26,12 @@ angular.module('coma').factory("comaBaseModelService", [
         };
 
         // Convenience class for logging.
-        var Representation = function (response) {
+        var Response = function (response) {
             angular.extend(this, response);
         };
 
         // Convenience class for logging.
-        var ServerResponse = function (response) {
-            angular.extend(this, response);
-        };
+        var RawModelInstance = function () { return this; };
 
         // Initialize the getModel functions on the associations
         HasManyAssociation.getAssociationModel = function (modelName) {
@@ -223,7 +221,7 @@ angular.module('coma').factory("comaBaseModelService", [
              * @returns {Object} The raw object
              */
             Entity.getRawModelObject = function (modelEntity, includeExpandedAssociations) {
-                var object = {};
+                var object = new RawModelInstance();
                 var field;
                 for (field in Entity.fields) {
                     if (Entity.fields.hasOwnProperty(field)) {
@@ -353,9 +351,9 @@ angular.module('coma').factory("comaBaseModelService", [
                     return $q.reject("The primary key was not supplied.");
                 }
                 return adapter.findOne(new ComaModel(Entity), pk, queryOptions).then(function (response) {
-                    var result = Entity.transformResult(response);
+                    var result = Entity.transformResult(response.data);
                     var entity = new Entity(result, true);
-                    $log.debug("BaseModelService: FindOne", new Representation(entity), new ServerResponse(response), queryOptions);
+                    $log.debug("BaseModelService: FindOne", new Response(entity), response, queryOptions);
                     return entity;
                 }, propagateError);
             };
@@ -370,25 +368,17 @@ angular.module('coma').factory("comaBaseModelService", [
              */
             Entity.find = function (queryOptions) {
                 return adapter.find(new ComaModel(Entity), queryOptions).then(function (response) {
-                    var responseResults = [];
-                    var pointerToResults = adapter.resultsField;
-                    if (pointerToResults) {
-                        responseResults = response[pointerToResults];
-                    } else {
-                        responseResults = response;
-                    }
-
                     var results = [];
                     var i;
-                    for (i = 0; i < responseResults.length; i++) {
-                        results.push(new Entity(Entity.transformResult(responseResults[i]), true));
+                    for (i = 0; i < response.data.length; i++) {
+                        results.push(new Entity(Entity.transformResult(response.data[i]), true));
                     }
 
                     var clientResponse = {
                         results: results,
-                        totalCount: response[adapter.totalCountField]
+                        totalCount: response.count
                     };
-                    $log.debug("BaseModelService: Find", new Representation(clientResponse), new ServerResponse(response), queryOptions);
+                    $log.debug("BaseModelService: Find", new Response(clientResponse), response, queryOptions);
                     return clientResponse;
                 }, propagateError);
             };
@@ -420,10 +410,10 @@ angular.module('coma').factory("comaBaseModelService", [
                 if (association) {
                     var Model = association.getModel();
                     if (Model && association.type === 'hasOne' && self[association.foreignKey] !== undefined) {
-                        adapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (result) {
-                            self[association.alias] = Model.getRawModelObject(result);
-                            self.$entity.storedState[association.alias] = Model.getRawModelObject(result);
-                            $log.debug("BaseModelService: $expand", association.type, associationName, self, new ServerResponse(result));
+                        adapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (response) {
+                            self[association.alias] = Model.getRawModelObject(response.data);
+                            self.$entity.storedState[association.alias] = Model.getRawModelObject(response.data);
+                            $log.debug("BaseModelService: $expand", association.type, associationName, self, response);
                             dfd.resolve();
                         }, function (e) {
                             $log.error("BaseModelService: $expand", association.type, associationName, self, e);
@@ -435,24 +425,16 @@ angular.module('coma').factory("comaBaseModelService", [
                         var queryOptions = new PreparedQueryOptions().$filter(predicate);
 
                         adapter.find(new ComaModel(Model), queryOptions).then(function (response) {
-                            var responseResults = [];
-                            var pointerToResults = adapter.resultsField;
-                            if (pointerToResults) {
-                                responseResults = response[pointerToResults];
-                            } else {
-                                responseResults = response;
-                            }
-
                             var base = [];
                             var stored = [];
                             var i;
-                            for (i = 0; i < responseResults.length; i++) {
-                                base.push(Model.getRawModelObject(responseResults[i]));
-                                stored.push(Model.getRawModelObject(responseResults[i]));
+                            for (i = 0; i < response.data.length; i++) {
+                                base.push(Model.getRawModelObject(response.data[i]));
+                                stored.push(Model.getRawModelObject(response.data[i]));
                             }
                             self[association.alias] = base;
                             self.$entity.storedState[association.alias] = stored;
-                            $log.debug("BaseModelService: $expand", association.type, associationName, self, new ServerResponse(response));
+                            $log.debug("BaseModelService: $expand", association.type, associationName, self, response);
                             dfd.resolve();
                         }, function (e) {
                             $log.error("BaseModelService: $expand", association.type, associationName, self, e);
@@ -536,12 +518,12 @@ angular.module('coma').factory("comaBaseModelService", [
                     }
 
                     return adapter.update(new ComaModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
-                        var result = Entity.transformResult(response);
+                        var result = Entity.transformResult(response.data);
                         Entity.extendFromRawObject(self, result);
                         self.$storeState();
                         self.$entity.fromAdapter = true;
                         self.$entity.saveInProgress = false;
-                        $log.debug("BaseModelService: $save: update", self, itemToSave, new ServerResponse(response));
+                        $log.debug("BaseModelService: $save: update", self, itemToSave, response);
                         return self;
                     }, function (e) {
                         self.$reset();
@@ -560,12 +542,12 @@ angular.module('coma').factory("comaBaseModelService", [
                 }
 
                 return adapter.create(new ComaModel(Entity), itemToSave).then(function (response) {
-                    var result = Entity.transformResult(response);
+                    var result = Entity.transformResult(response.data);
                     Entity.extendFromRawObject(self, result);
                     self.$storeState();
                     self.$entity.fromAdapter = true;
                     self.$entity.saveInProgress = false;
-                    $log.debug("BaseModelService: $save: create", self, itemToSave, new ServerResponse(response));
+                    $log.debug("BaseModelService: $save: create", self, itemToSave, response);
                     return self;
                 }, function (e) {
                     self.$reset();

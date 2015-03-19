@@ -15,7 +15,7 @@
     <hr />
     <button data-ng-click="createPerson()">Create Person</button>
     <ul>
-        <li data-ng-repeat="person in people">
+        <li data-ng-repeat="person in people track by person.id">
             <span>{{ person.added | date:'short' }} : {{ person.firstName }} {{ person.lastName }} </span>
             <button data-ng-click="person.$save()">save</button>
             <button data-ng-click="person.$reset()">reset</button>
@@ -27,7 +27,7 @@
     <hr />
     <button data-ng-click="createPhoneNumber()">Create Phone Number</button>
     <ul>
-        <li data-ng-repeat="phoneNumber in phoneNumbers">
+        <li data-ng-repeat="phoneNumber in phoneNumbers track by phoneNumber.id">
             <span>{{ phoneNumber.number }} - Primary: {{ phoneNumber.primary }} </span>
             <button data-ng-click="phoneNumber.$save()">save</button>
             <button data-ng-click="phoneNumber.$reset()">reset</button>
@@ -41,6 +41,7 @@
 <script type="text/javascript" src="../tests/lib/angular.js"></script>
 <script type="text/javascript" src="../src/_module.js"></script>
 <script type="text/javascript" src="../src/coma.provider.js"></script>
+<script type="text/javascript" src="../src/coma.adapterResponse.js"></script>
 <script type="text/javascript" src="../src/coma.hasManyAssociation.js"></script>
 <script type="text/javascript" src="../src/coma.hasOneAssociation.js"></script>
 <script type="text/javascript" src="../src/coma.modelField.js"></script>
