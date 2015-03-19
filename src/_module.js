@@ -1,1 +1,1 @@
-angular.module('coma', ['coma.logger']);
+angular.module('coma', []);

@@ -1,11 +1,10 @@
 angular.module('coma').factory("comaBaseModelService", [
+    '$log',
     '$q',
-    'comaLogger',
     'comaPreparedQueryOptions',
     'comaPredicate',
 
-    function ($q, CommaLogger, PreparedQueryOptions, Predicate) {
-        var log = new CommaLogger(4, "Coma Model");
+    function ($log, $q, PreparedQueryOptions, Predicate) {
         var baseModelService = {};
 
         var propagateError = function (e) {
@@ -282,13 +281,13 @@ angular.module('coma').factory("comaBaseModelService", [
              */
             Entity.findOne = function (pk, queryOptions) {
                 if (!pk) {
-                    log.error('FindOne', 'The primary key was not supplied');
+                    $log.error('BaseModelService: FindOne', 'The primary key was not supplied');
                     return $q.reject("The primary key was not supplied.");
                 }
                 return adapter.findOne(new ComaModel(Entity), pk, queryOptions).then(function (response) {
                     var result = Entity.transformResult(response);
                     var entity = new Entity(result, true);
-                    log.debug("FindOne", new Representation(entity), new ServerResponse(response), queryOptions);
+                    $log.debug("BaseModelService: FindOne", new Representation(entity), new ServerResponse(response), queryOptions);
                     return entity;
                 }, propagateError);
             };
@@ -321,7 +320,7 @@ angular.module('coma').factory("comaBaseModelService", [
                         results: results,
                         totalCount: response[adapter.totalCountField]
                     };
-                    log.debug("Find", new Representation(clientResponse), new ServerResponse(response), queryOptions);
+                    $log.debug("BaseModelService: Find", new Representation(clientResponse), new ServerResponse(response), queryOptions);
                     return clientResponse;
                 }, propagateError);
             };
@@ -334,7 +333,7 @@ angular.module('coma').factory("comaBaseModelService", [
              */
             Entity.remove = function (pk) {
                 if (!pk) {
-                    log.error('Remove', 'The primary key was not supplied');
+                    $log.error('BaseModelService: Remove', 'The primary key was not supplied');
                     return $q.reject("The primary key was not supplied.");
                 }
                 return adapter.remove(new ComaModel(Entity), pk);
@@ -356,10 +355,10 @@ angular.module('coma').factory("comaBaseModelService", [
                         adapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (result) {
                             self[association.alias] = Model.getRawModelObject(result);
                             self.$entity.storedState[association.alias] = Model.getRawModelObject(result);
-                            log.debug("$expand", association.type, associationName, self, new ServerResponse(result));
+                            $log.debug("BaseModelService: $expand", association.type, associationName, self, new ServerResponse(result));
                             dfd.resolve();
                         }, function (e) {
-                            log.error("$expand", association.type, associationName, self, e);
+                            $log.error("BaseModelService: $expand", association.type, associationName, self, e);
                             dfd.reject(e);
                         });
                     } else if (Model && association.type === 'hasMany') {
@@ -385,10 +384,10 @@ angular.module('coma').factory("comaBaseModelService", [
                             }
                             self[association.alias] = base;
                             self.$entity.storedState[association.alias] = stored;
-                            log.debug("$expand", association.type, associationName, self, new ServerResponse(response));
+                            $log.debug("BaseModelService: $expand", association.type, associationName, self, new ServerResponse(response));
                             dfd.resolve();
                         }, function (e) {
-                            log.error("$expand", association.type, associationName, self, e);
+                            $log.error("BaseModelService: $expand", association.type, associationName, self, e);
                             dfd.reject(e);
                         });
                     } else {
@@ -413,7 +412,7 @@ angular.module('coma').factory("comaBaseModelService", [
                     if (Entity.fields.hasOwnProperty(field)) {
                         fieldIsUndefined = (this[field] === null || this[field] === undefined);
                         if (Entity.fields[field].notNull === true && fieldIsUndefined) {
-                            log.debug("$isValid returned false", "NotNull field was null", field, this);
+                            $log.debug("BaseModelService: $isValid returned false", "NotNull field was null", field, this);
                             return false;
                         }
                         switch (Entity.fields[field].type) {
@@ -431,13 +430,13 @@ angular.module('coma').factory("comaBaseModelService", [
                             break;
                         }
                         if (!matchesType && !fieldIsUndefined) {
-                            log.debug("$isValid returned false", "The type was not " + Entity.fields[field].type, field, this);
+                            $log.debug("BaseModelService: $isValid returned false", "The type was not " + Entity.fields[field].type, field, this);
                             return false;
                         }
                         if (typeof Entity.fields[field].validate === "function") {
                             valid = Entity.fields[field].validate(this[field]);
                             if (!valid) {
-                                log.debug("$isValid returned false", "Custom validator failed", field, this);
+                                $log.debug("BaseModelService: $isValid returned false", "Custom validator failed", field, this);
                                 return false;
                             }
                         }
@@ -464,7 +463,7 @@ angular.module('coma').factory("comaBaseModelService", [
                     itemToSave = Entity.preUpdate(itemToSave);
 
                     if (!self.$isValid()) {
-                        log.warn("$save: aborted", self, self[Entity.primaryKeyFieldName]);
+                        $log.warn("BaseModelService: $save: aborted", self, self[Entity.primaryKeyFieldName]);
                         return $q.reject("aborted");
                     }
 
@@ -474,12 +473,12 @@ angular.module('coma').factory("comaBaseModelService", [
                         self.$storeState();
                         self.$entity.fromAdapter = true;
                         self.$entity.saveInProgress = false;
-                        log.debug("$save: update", self, itemToSave, new ServerResponse(response));
+                        $log.debug("BaseModelService: $save: update", self, itemToSave, new ServerResponse(response));
                         return self;
                     }, function (e) {
                         self.$reset();
                         self.$entity.saveInProgress = false;
-                        log.error("$save: update", self, itemToSave, e);
+                        $log.error("BaseModelService: $save: update", self, itemToSave, e);
                         return $q.reject(e);
                     });
                 }
@@ -488,7 +487,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 itemToSave = Entity.preCreate(itemToSave);
 
                 if (!self.$isValid()) {
-                    log.warn("$save: aborted", self, self[Entity.primaryKeyFieldName]);
+                    $log.warn("BaseModelService: $save: aborted", self, self[Entity.primaryKeyFieldName]);
                     return $q.reject("aborted");
                 }
 
@@ -498,12 +497,12 @@ angular.module('coma').factory("comaBaseModelService", [
                     self.$storeState();
                     self.$entity.fromAdapter = true;
                     self.$entity.saveInProgress = false;
-                    log.debug("$save: create", self, itemToSave, new ServerResponse(response));
+                    $log.debug("BaseModelService: $save: create", self, itemToSave, new ServerResponse(response));
                     return self;
                 }, function (e) {
                     self.$reset();
                     self.$entity.saveInProgress = false;
-                    log.error("$save: create", self, itemToSave, e);
+                    $log.error("BaseModelService: $save: create", self, itemToSave, e);
                     return $q.reject(e);
                 });
             };
@@ -518,7 +517,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 if (this[Entity.primaryKeyFieldName]) {
                     return Entity.remove(this[Entity.primaryKeyFieldName]);
                 }
-                log.error('$remove', 'The primary key was not found');
+                $log.error('BaseModelService: $remove', 'The primary key was not found');
                 return $q.reject("The primary key was not found.");
             };
 
@@ -570,14 +569,14 @@ angular.module('coma').factory("comaBaseModelService", [
                         viewValue = raw[field];
 
                         if (storedValue !== viewValue) {
-                            log.debug("$isDirty", this[Entity.primaryKeyFieldName], true, delta);
+                            $log.debug("BaseModelService: $isDirty", this[Entity.primaryKeyFieldName], true, delta);
                             this.$entity.lastDirtyState = true;
                             return true;
                         }
                     }
                 }
 
-                log.debug("$isDirty", this[Entity.primaryKeyFieldName], false, delta);
+                $log.debug("BaseModelService: $isDirty", this[Entity.primaryKeyFieldName], false, delta);
                 this.$entity.lastDirtyState = false;
                 return false;
             };
@@ -616,7 +615,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 this.$entity.lastDirtyState = false;
                 this.$entity.lastDirtyCheck = new Date().getTime();
 
-                log.debug("$reset", this[Entity.primaryKeyFieldName], changedProperties);
+                $log.debug("BaseModelService: $reset", this[Entity.primaryKeyFieldName], changedProperties);
                 return changedProperties;
             };
 

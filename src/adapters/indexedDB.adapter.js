@@ -1,4 +1,4 @@
-angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedDBAdapter', [
+angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
     function () {
 
         var providerConfig = {};
@@ -30,12 +30,6 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
             return this;
         };
 
-        providerConfig.logLevel = 0;
-        this.setLogLevel = function (logLevel) {
-            providerConfig.logLevel = logLevel;
-            return this;
-        };
-
         this.dropDatabase = function () {
             try {
                 window.indexedDB.deleteDatabase(providerConfig.dbName);
@@ -45,8 +39,7 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
             return true;
         };
 
-        this.$get = ['$q', 'coma', 'comaLogger', function ($q, coma, CommaLogger) {
-            var log = new CommaLogger(providerConfig.logLevel, "IndexedDB Adapter");
+        this.$get = ['$log', '$q', 'coma', function ($log, $q, coma) {
 
             var adapter = {
                 resultsField: "results",
@@ -89,7 +82,7 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                 // If you don't do this then the upgrade won't happen until the user closes the tab.
                 db.onversionchange = function () {
                     db.close();
-                    log.error('DB version changed in a different window');
+                    $log.error('IndexedDBAdapter: DB version changed in a different window');
                     alert("A new version of this page is ready. Please reload!");
                 };
             };
@@ -103,19 +96,19 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                     var openRequest = idb.open(providerConfig.dbName, providerConfig.dbVersion);
 
                     openRequest.onupgradeneeded = function (event) {
-                        log.info('Migrating...', event);
+                        $log.info('IndexedDBAdapter: Migrating...', event);
                         useDatabase(event.target.result);
                         migrate(event.target.result);
                     };
 
                     openRequest.onsuccess = function (event) {
-                        log.debug('Connection Success', event);
+                        $log.debug('IndexedDBAdapter: Connection Success', event);
                         useDatabase(event.target.result);
                         dfd.resolve(db);
                     };
 
                     openRequest.onerror = function (event) {
-                        log.error('Connection Error', event);
+                        $log.error('IndexedDBAdapter: Connection Error', event);
                         dfd.reject(event.target.errorCode);
                     };
                 }
@@ -246,7 +239,7 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                     $q.all(promises).then(function () {
                         dfd.resolve();
                     }, function (e) {
-                        log.error('PerformExpand', e, $expand, result);
+                        $log.error('IndexedDBAdapter: PerformExpand', e, $expand, result);
                         dfd.reject(e);
                     });
                 } else {
@@ -316,15 +309,15 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                     var store = tx.objectStore(theModel.dataSourceName);
                     var req = store.add(modelInstance);
                     req.onsuccess = function () {
-                        log.debug('Create', modelInstance, theModel);
+                        $log.debug('IndexedDBAdapter: Create', modelInstance, theModel);
                         dfd.resolve(modelInstance);
                     };
                     req.onerror = function () {
-                        log.error('Create', this.error, modelInstance, theModel);
+                        $log.error('IndexedDBAdapter: Create', this.error, modelInstance, theModel);
                         dfd.reject(this.error);
                     };
                 }, function (e) {
-                    log.error('Create', e, modelInstance, theModel);
+                    $log.error('IndexedDBAdapter: Create', e, modelInstance, theModel);
                     dfd.reject(e);
                 });
 
@@ -342,18 +335,18 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                     // TODO: Apply Select
                     req.onsuccess = function () {
                         performExpand(req.result, theModel, queryOptions, tx).then(function () {
-                            log.debug('FindOne', req.result, pk, queryOptions, theModel);
+                            $log.debug('IndexedDBAdapter: FindOne', req.result, pk, queryOptions, theModel);
                             dfd.resolve(req.result);
                         }, function (e) {
                             dfd.reject(e);
                         });
                     };
                     req.onerror = function () {
-                        log.error('FindOne', this.error, pk, queryOptions, theModel);
+                        $log.error('IndexedDBAdapter: FindOne', this.error, pk, queryOptions, theModel);
                         dfd.reject(this.error);
                     };
                 }, function (e) {
-                    log.error('FindOne', e, pk, queryOptions, theModel);
+                    $log.error('IndexedDBAdapter: FindOne', e, pk, queryOptions, theModel);
                     dfd.reject(e);
                 });
                 return dfd.promise;
@@ -407,20 +400,20 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
 
                                 var response = {results: results, totalCount: totalCount};
 
-                                log.debug('Find', response, queryOptions, theModel);
+                                $log.debug('IndexedDBAdapter: Find', response, queryOptions, theModel);
                                 dfd.resolve(response);
                             }, function (e) {
-                                log.error('Find', e, queryOptions, theModel);
+                                $log.error('IndexedDBAdapter: Find', e, queryOptions, theModel);
                                 dfd.reject(e);
                             });
                         }
                     };
                     req.onerror = function () {
-                        log.error('Find', this.error, queryOptions, theModel);
+                        $log.error('IndexedDBAdapter: Find', this.error, queryOptions, theModel);
                         dfd.reject(this.error);
                     };
                 }, function (e) {
-                    log.error('Find', e, queryOptions, theModel);
+                    $log.error('IndexedDBAdapter: Find', e, queryOptions, theModel);
                     dfd.reject(e);
                 });
                 return dfd.promise;
@@ -444,21 +437,21 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                         var updateReq = store.put(result);
 
                         updateReq.onsuccess = function () {
-                            log.debug('Update', result, modelInstance, pk, theModel);
+                            $log.debug('IndexedDBAdapter: Update', result, modelInstance, pk, theModel);
                             dfd.resolve(result);
                         };
                         updateReq.onerror = function () {
-                            log.error('Update', this.error, modelInstance, pk, theModel);
+                            $log.error('IndexedDBAdapter: Update', this.error, modelInstance, pk, theModel);
                             dfd.reject(this.error);
                         };
                     };
                     req.onerror = function () {
-                        log.error('Update', this.error, modelInstance, pk, theModel);
+                        $log.error('IndexedDBAdapter: Update', this.error, modelInstance, pk, theModel);
                         dfd.reject(this.error);
                     };
 
                 }, function (e) {
-                    log.error('Update', e, modelInstance, pk, theModel);
+                    $log.error('IndexedDBAdapter: Update', e, modelInstance, pk, theModel);
                     dfd.reject(e);
                 });
                 return dfd.promise;
@@ -473,15 +466,15 @@ angular.module('coma.adapter.indexedDB', ['coma.logger']).provider('comaIndexedD
                     var store = tx.objectStore(theModel.dataSourceName);
                     var req = store.delete(pk);
                     req.onsuccess = function () {
-                        log.debug('Remove', pk, theModel);
+                        $log.debug('IndexedDBAdapter: Remove', pk, theModel);
                         dfd.resolve();
                     };
                     req.onerror = function () {
-                        log.error('Remove', this.error, pk, theModel);
+                        $log.error('IndexedDBAdapter: Remove', this.error, pk, theModel);
                         dfd.reject(this.error);
                     };
                 }, function (e) {
-                    log.error('Remove', e, pk, theModel);
+                    $log.error('IndexedDBAdapter: Remove', e, pk, theModel);
                     dfd.reject(e);
                 });
                 return dfd.promise;

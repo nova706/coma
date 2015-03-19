@@ -3,11 +3,8 @@
  */
 angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB']).config([
     'comaIndexedDBAdapterProvider',
-    'comaLoggerProvider',
 
-    function (comaIndexedDBAdapterProvider, comaLoggerProvider) {
-        comaLoggerProvider.setLogLevel(4);
-        comaIndexedDBAdapterProvider.setLogLevel(4);
+    function (comaIndexedDBAdapterProvider) {
         comaIndexedDBAdapterProvider.setDbName("comaDemo");
         comaIndexedDBAdapterProvider.setDbVersion(1);
     }
