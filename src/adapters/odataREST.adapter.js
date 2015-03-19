@@ -1,4 +1,4 @@
-angular.module('coma.adapter.oDataREST', []).provider('comaODataRESTAdapter', [
+angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapter', [
     function () {
 
         var providerConfig = {};
@@ -25,6 +25,11 @@ angular.module('coma.adapter.oDataREST', []).provider('comaODataRESTAdapter', [
 
             var adapter = {};
 
+            var addOptionsToUrl = function (url, queryOptions) {
+                url += queryOptions ? queryOptions.parseOptions() : "";
+                return url;
+            };
+
             adapter.create = function (theModel, modelInstance) {
                 var dfd = $q.defer();
                 var response;
@@ -50,7 +55,13 @@ angular.module('coma.adapter.oDataREST', []).provider('comaODataRESTAdapter', [
                 var dfd = $q.defer();
                 var response;
 
-                var url = providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk + queryOptions ? queryOptions.parseOptions() : "";
+                if (!pk) {
+                    response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
+                    $log.error('ODataRESTAdapter: FindOne', response, pk, queryOptions, theModel);
+                    return $q.reject(response);
+                }
+
+                var url = addOptionsToUrl(providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk, queryOptions);
 
                 $http.get(url)
                     .success(function (data, status, headers, config) {
@@ -71,7 +82,7 @@ angular.module('coma.adapter.oDataREST', []).provider('comaODataRESTAdapter', [
                 var dfd = $q.defer();
                 var response;
 
-                var url = providerConfig.serverAPILocation + theModel.dataSourceName + queryOptions ? queryOptions.parseOptions() : "";
+                var url = addOptionsToUrl(providerConfig.serverAPILocation + theModel.dataSourceName);
 
                 $http.get(url)
                     .success(function (data, status, headers, config) {
@@ -104,6 +115,12 @@ angular.module('coma.adapter.oDataREST', []).provider('comaODataRESTAdapter', [
                 var dfd = $q.defer();
                 var response;
 
+                if (!pk) {
+                    response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
+                    $log.error('ODataRESTAdapter: FindOne', response, modelInstance, theModel);
+                    return $q.reject(response);
+                }
+
                 var url = providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk;
 
                 $http.put(url, modelInstance)
@@ -125,17 +142,23 @@ angular.module('coma.adapter.oDataREST', []).provider('comaODataRESTAdapter', [
                 var dfd = $q.defer();
                 var response;
 
+                if (!pk) {
+                    response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
+                    $log.error('ODataRESTAdapter: FindOne', response, pk, theModel);
+                    return $q.reject(response);
+                }
+
                 var url = providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk;
 
                 $http({method: 'DELETE', url: url})
                     .success(function (data, status, headers, config) {
                         response = new AdapterResponse(data, 1, status, headers, config);
-                        $log.debug('ODataRESTAdapter: Remove', response, theModel);
+                        $log.debug('ODataRESTAdapter: Remove', response, pk, theModel);
                         dfd.resolve(response);
                     })
                     .error(function (error, status, headers, config) {
                         response = new AdapterResponse(error, 0, status, headers, config);
-                        $log.error('ODataRESTAdapter: Remove', response, theModel);
+                        $log.error('ODataRESTAdapter: Remove', response, pk, theModel);
                         dfd.reject(response);
                     });
 

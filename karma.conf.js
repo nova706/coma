@@ -8,7 +8,7 @@ module.exports = function (config) {
             'tests/lib/angular.js',
             'tests/lib/angular-mocks.js',
             'src/**/*.js',
-            'tests/src/*.js'
+            'tests/src/**/*.js'
         ],
 
         exclude: [],

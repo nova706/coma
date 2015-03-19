@@ -1,4 +1,4 @@
-angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
+angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapter', [
     function () {
 
         var providerConfig = {};
@@ -39,10 +39,10 @@ angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
             return true;
         };
 
-        this.$get = ['$log', '$q', 'coma', 'comaAdapterResponse', function ($log, $q, coma, AdapterResponse) {
+        this.$get = ['$log', '$q', '$window', 'coma', 'comaAdapterResponse', function ($log, $q, $window, coma, AdapterResponse) {
 
             var adapter = {};
-            var idb = window.indexedDB;
+            var idb = $window.indexedDB;
             var db;
 
             var generatePrimaryKey = providerConfig.pkGenerator;
