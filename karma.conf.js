@@ -7,14 +7,14 @@ module.exports = function (config) {
         files: [
             'tests/lib/angular.js',
             'tests/lib/angular-mocks.js',
-            'src/*.js',
+            'src/**/*.js',
             'tests/src/*.js'
         ],
 
         exclude: [],
 
         preprocessors: {
-            'src/*.js': ['coverage']
+            'src/**/*.js': ['coverage']
         },
 
         coverageReporter: {
