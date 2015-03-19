@@ -11,8 +11,7 @@ angular.module('comaDemo').controller('RootCtrl', [
     function ($scope, Person, PhoneNumber, PreparedQueryOptions) {
 
         var queryPhoneNumbers = function () {
-            var queryOptions = new PreparedQueryOptions().$expand('person');
-            PhoneNumber.find(queryOptions).then(function (response) {
+            PhoneNumber.find().then(function (response) {
                 $scope.phoneNumbers = response.results;
                 if ($scope.phoneNumbers[0]) {
                     $scope.phoneNumbers[0].someOtherProperty = 'test';

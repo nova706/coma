@@ -372,7 +372,7 @@ angular.module('coma.adapter.indexedDB', []).provider('comaIndexedDBAdapter', [
                     var results = [];
                     var filterPredicate;
 
-                    if (queryOptions.$filter()) {
+                    if (queryOptions && queryOptions.$filter()) {
                         filterPredicate = queryOptions.$filter();
                     }
 
