@@ -2,10 +2,13 @@ angular.module('coma').factory("comaBaseModelService", [
     '$injector',
     '$log',
     '$q',
+    'comaHasManyAssociation',
+    'comaHasOneAssociation',
+    'comaModelField',
     'comaPreparedQueryOptions',
     'comaPredicate',
 
-    function ($injector, $log, $q, PreparedQueryOptions, Predicate) {
+    function ($injector, $log, $q, HasManyAssociation, HasOneAssociation, ModelField, PreparedQueryOptions, Predicate) {
         var baseModelService = {
             dirtyCheckThreshold: 30,
             defaultAdapter: {},
@@ -30,95 +33,6 @@ angular.module('coma').factory("comaBaseModelService", [
         // Convenience class for logging.
         var ServerResponse = function (response) {
             angular.extend(this, response);
-        };
-
-        /**
-         * Model Field class to make all model fields consistent
-         * @param {String} name
-         * @param {Object | String} definition The Field Definition or the Field Type
-         * @constructor
-         */
-        var ModelField = function (name, definition) {
-            this.invalid = false;
-            this.name = name;
-
-            if (typeof definition === 'string') {
-                this.type = definition;
-                this.primaryKey = false;
-                this.unique = false;
-                this.index = false;
-                this.notNull = false;
-            } else {
-                this.type = definition.type;
-                this.primaryKey = definition.primaryKey === true;
-                this.unique = definition.unique === true;
-                this.index = (typeof definition.index === 'string') ? definition.index : (definition.index === true) ? name : false;
-                this.notNull = definition.notNull === true;
-
-                if (typeof definition.getDefaultValue === 'function') {
-                    this.getDefaultValue = definition.getDefaultValue;
-                }
-            }
-
-            // The adapter or the adapter's handler should enforce uniqueness of the primary key.
-            // The index on the primary key should be handled automatically without needing to specify an index.
-            // In order to pass validation during creation, the primary key should not be set as notNull.
-            // This of course should be enforced by the adapter or the adapter's handler.
-            if (this.primaryKey) {
-                this.notNull = false;
-                this.unique = false;
-                this.index = false;
-            }
-
-            // TODO: Better field validation
-            if (!this.name || !this.type) {
-                this.invalid = true;
-                $log.error('BaseModelService: Define Model Field', 'The field definition is invalid', this, definition);
-            }
-        };
-
-        /**
-         * Has One Association class
-         * @param {Object} definition
-         * @constructor
-         */
-        var HasOneAssociation = function (definition) {
-            this.invalid = false;
-            this.type = 'hasOne';
-
-            this.modelName = definition.modelName || definition.hasOne;
-            this.alias = definition.as || this.modelName;
-            this.foreignKey = definition.foreignKey;
-            this.getModel = function () {
-                return baseModelService.getModel(this.modelName);
-            };
-
-            if (!this.modelName || !this.foreignKey) {
-                $log.error('BaseModelService: HasOneAssociation', 'The association definition is invalid', definition);
-                this.invalid = true;
-            }
-        };
-
-        /**
-         * Has Many Association class
-         * @param {Object} definition
-         * @constructor
-         */
-        var HasManyAssociation = function (definition) {
-            this.invalid = false;
-            this.type = 'hasMany';
-
-            this.modelName = definition.modelName || definition.hasMany;
-            this.alias = definition.as || this.modelName;
-            this.mappedBy = definition.mappedBy;
-            this.getModel = function () {
-                return baseModelService.getModel(this.modelName);
-            };
-
-            if (!this.modelName || !this.mappedBy) {
-                $log.error('BaseModelService: HasManyAssociation', 'The association definition is invalid', definition);
-                this.invalid = true;
-            }
         };
 
         /**
@@ -238,6 +152,9 @@ angular.module('coma').factory("comaBaseModelService", [
                 }
                 var i;
                 var association;
+                var getModel = function () {
+                    return baseModelService.getModel(this.modelName);
+                };
                 for (i = 0; i < modelDefinition.associations.length; i++) {
                     if (typeof modelDefinition.associations[i].hasOne === 'string') {
                         association = new HasOneAssociation(modelDefinition.associations[i]);
@@ -258,6 +175,7 @@ angular.module('coma').factory("comaBaseModelService", [
                             }
                         }
 
+                        association.getModel = getModel;
                         Entity.associations.push(association);
                     }
                 }
