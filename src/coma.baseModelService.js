@@ -35,6 +35,14 @@ angular.module('coma').factory("comaBaseModelService", [
             angular.extend(this, response);
         };
 
+        // Initialize the getModel functions on the associations
+        HasManyAssociation.getAssociationModel = function (modelName) {
+            return baseModelService.getModel(modelName);
+        };
+        HasOneAssociation.getAssociationModel = function (modelName) {
+            return baseModelService.getModel(modelName);
+        };
+
         /**
          * Set the dirty check threshold used by the entity dirty checking
          * @param {Number} dirtyCheckThreshold in Milliseconds
@@ -152,9 +160,6 @@ angular.module('coma').factory("comaBaseModelService", [
                 }
                 var i;
                 var association;
-                var getModel = function () {
-                    return baseModelService.getModel(this.modelName);
-                };
                 for (i = 0; i < modelDefinition.associations.length; i++) {
                     if (typeof modelDefinition.associations[i].hasOne === 'string') {
                         association = new HasOneAssociation(modelDefinition.associations[i]);
@@ -175,7 +180,6 @@ angular.module('coma').factory("comaBaseModelService", [
                             }
                         }
 
-                        association.getModel = getModel;
                         Entity.associations.push(association);
                     }
                 }
