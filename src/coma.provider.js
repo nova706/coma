@@ -1,4 +1,4 @@
-angular.module('coma', ['coma.logger']).provider('coma', [
+angular.module('coma').provider('coma', [
     function () {
         var config = {};
         var models = {};
