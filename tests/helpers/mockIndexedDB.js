@@ -12,8 +12,6 @@ window.MockIndexedDB = function ($timeout) {
     var mockIndex;
     var MockCursor;
 
-    var mockData = [];
-
     mockDatabase = {
         onversionchange: noop,
         objectStoreNames: {
@@ -178,7 +176,6 @@ window.MockIndexedDB = function ($timeout) {
     };
 
     return {
-        mockData: {},
         rejectConnection: function () {
             rejectConnection = true;
         },
