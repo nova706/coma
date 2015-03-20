@@ -10,6 +10,9 @@ angular.module('comaDemo').controller('RootCtrl', [
 
     function ($scope, Person, PhoneNumber, PreparedQueryOptions) {
 
+        $scope.viewPerson = null;
+        $scope.viewPhoneNumber = null;
+
         var queryPhoneNumbers = function () {
             PhoneNumber.find().then(function (response) {
                 $scope.phoneNumbers = response.results;
@@ -42,21 +45,28 @@ angular.module('comaDemo').controller('RootCtrl', [
             });
         };
 
-        $scope.createPhoneNumber = function () {
+        $scope.addPhoneNumber = function (person) {
             var phoneNumber = new PhoneNumber({
                 number: '555-555-5555',
                 primary: true,
-                personId: ($scope.people[0]) ? $scope.people[0].id : null
+                personId: person.id
             });
             phoneNumber.$save().then(function () {
                 $scope.phoneNumbers.push(phoneNumber);
+                person.phoneNumbers.push(phoneNumber);
             });
         };
 
-        $scope.removePhoneNumber = function (phoneNumber, $index) {
-            phoneNumber.$remove().then(function () {
-                $scope.phoneNumbers.splice($index, 1);
-            });
+        $scope.removePhoneNumber = function (phoneNumber) {
+            var i;
+            for (i = 0; i < $scope.phoneNumbers.length; i++) {
+                if ($scope.phoneNumbers[i].id === phoneNumber.id) {
+                    $scope.phoneNumbers[i].$remove().then(function () {
+                        $scope.phoneNumbers.splice(i, 1);
+                    });
+                    break;
+                }
+            }
         };
 
         $scope.dropDatabase = function () {
