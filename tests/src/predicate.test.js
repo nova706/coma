@@ -1,4 +1,4 @@
-/*globals require, describe, beforeEach, module, inject, it, should*/
+/*globals describe, beforeEach, module, inject, it, should*/
 describe("Predicate", function () {
 
     beforeEach(module('coma'));

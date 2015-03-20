@@ -1,4 +1,4 @@
-/*globals require, describe, beforeEach, module, inject, it, should*/
+/*globals describe, beforeEach, module, inject, it, should*/
 describe("PreparedQueryOptions", function () {
 
     beforeEach(module('coma'));

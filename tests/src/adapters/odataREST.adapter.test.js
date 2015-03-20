@@ -1,4 +1,4 @@
-/*globals require, describe, beforeEach, afterEach, module, inject, it, should*/
+/*globals describe, beforeEach, afterEach, module, inject, it, should*/
 describe("ODataRESTAdapter", function () {
 
     beforeEach(module('coma.adapter.oDataREST'));
