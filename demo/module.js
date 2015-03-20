@@ -1,14 +1,18 @@
 /**
  * Define the Angular Module and any required dependencies
  */
-angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB']).config([
+angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB', 'coma.adapter.oDataREST']).config([
     'comaProvider',
     'comaIndexedDBAdapterProvider',
+    'comaODataRESTAdapterProvider',
 
-    function (comaProvider, comaIndexedDBAdapterProvider) {
+    function (comaProvider, comaIndexedDBAdapterProvider, comaODataRESTAdapterProvider) {
         comaProvider.setLocalAdapter('comaIndexedDBAdapter');
+        comaProvider.setRemoteAdapter('comaODataRESTAdapter');
+        comaProvider.setLastModifiedField('lastModified');
         comaIndexedDBAdapterProvider.setDbName("comaDemo");
         comaIndexedDBAdapterProvider.setDbVersion(1);
+        comaODataRESTAdapterProvider.setServerAPILocation('/api/');
     }
 ]);
 

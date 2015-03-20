@@ -31,21 +31,26 @@
         <h3 class="text-muted">Coma Playground</h3>
     </div>
 
-    <button class="pull-right btn btn-primary" data-ng-click="createPerson()">Create Person</button>
+    <div class="pull-right">
+        <button class="btn btn-primary" data-ng-click="createPerson()">New</button>
+        <button class="btn btn-success" data-ng-click="syncPeople()">Sync</button>
+    </div>
     <h4>People</h4>
     <br />
 
-    <table class="table table-striped">
-        <tr data-ng-repeat="person in people track by person.id">
+    <table class="ng-cloak table table-hover">
+        <tr data-ng-repeat="person in people track by person.id"
+            data-ng-click="$parent.viewPhoneNumber = null; $parent.viewPerson = ($parent.viewPerson == person) ? null : person"
+            data-ng-class="{active: $parent.viewPerson == person}"
+            style="cursor: pointer">
             <td>{{ person.added | date:'short' }}</td>
             <td>{{ person.$entity.storedState.firstName }} {{ person.$entity.storedState.lastName }}</td>
-            <td style="width: 72px"><a class="btn btn-default" data-ng-class="{active: $parent.viewPerson == person}" data-ng-click="$parent.viewPerson = ($parent.viewPerson == person) ? null : person">View</a></td>
         </tr>
     </table>
 
-    <div data-ng-show="viewPerson != null">
+    <div class="ng-cloak" data-ng-show="viewPerson != null">
         <h4>{{viewPerson.$entity.storedState.firstName}} {{viewPerson.$entity.storedState.lastName}}</h4>
-        <form class="form-horizontal" data-ng-submit="viewPerson.$save()">
+        <form class="form-horizontal">
             <div class="form-group">
                 <label for="firstName" class="col-sm-2 control-label">First Name</label>
                 <div class="col-sm-6">
@@ -59,68 +64,65 @@
                 </div>
             </div>
             <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-6">
-                    <button data-ng-disabled="!viewPerson.$isDirty()" type="submit" class="btn btn-success">Save</button>
+                <div class="col-sm-offset-2 col-sm-10">
+                    <button data-ng-disabled="!viewPerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="viewPerson.$save('local')">Save Locally</button>
+                    <button data-ng-disabled="!viewPerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="viewPerson.$save('remote')">Save Remotely</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-offset-2 col-sm-10">
                     <button type="button" class="btn btn-primary" data-ng-click="addPhoneNumber(viewPerson)">Add Phone Number</button>
                     <button type="button" class="btn btn-default" data-ng-click="viewPerson.$expand('phoneNumbers')">Refresh Phone Numbers</button>
                 </div>
             </div>
             <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-6">
+                <div class="col-sm-offset-2 col-sm-10">
                     <table class="table table-striped">
                         <tr data-ng-repeat="phoneNumber in viewPerson.phoneNumbers track by phoneNumber.id">
                             <td>{{ phoneNumber.number }}</td>
                             <td>Primary: {{ phoneNumber.primary }}</td>
-                            <td><a href data-ng-click="removePhoneNumber(phoneNumber); viewPerson.phoneNumbers.splice($index, 1); viewPerson.$storeState()">remove</a></td>
+                            <td style="width: 72px"><a class="btn btn-danger" data-ng-click="removePhoneNumber(phoneNumber); viewPerson.phoneNumbers.splice($index, 1); viewPerson.$storeState()">Remove</a></td>
+                            <td style="width: 72px"><a class="btn btn-default" data-ng-class="{active: $parent.viewPhoneNumber == phoneNumber}" data-ng-click="$parent.viewPhoneNumber = ($parent.viewPhoneNumber == phoneNumber) ? null : phoneNumber">Edit</a></td>
                         </tr>
                     </table>
                 </div>
             </div>
         </form>
+        <div data-ng-show="viewPhoneNumber != null">
+            <h4>{{viewPhoneNumber.$entity.storedState.number}}</h4>
+            <form class="form-horizontal" data-ng-submit="viewPhoneNumber.$save()">
+                <div class="form-group">
+                    <label for="number" class="col-sm-2 control-label">Number</label>
+                    <div class="col-sm-6">
+                        <input type="text" data-ng-model="viewPhoneNumber.number" class="form-control" id="number" placeholder="555-555-5555">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button data-ng-disabled="!viewPhoneNumber.$isDirty()" type="submit" class="btn btn-success">Save</button>
+                    </div>
+                </div>
+            </form>
+            <pre>{{ viewPhoneNumber | json }}</pre>
+        </div>
         <pre>{{ viewPerson | json }}</pre>
-    </div>
-
-    <h4>Phone Numbers</h4>
-    <br />
-
-    <table class="table table-striped">
-        <tr data-ng-repeat="phoneNumber in phoneNumbers track by phoneNumber.id">
-            <td>{{ phoneNumber.$entity.storedState.number }}</td>
-            <td>Primary: {{ phoneNumber.primary }}</td>
-            <td style="width: 72px"><a class="btn btn-default" data-ng-class="{active: $parent.viewPhoneNumber == phoneNumber}" data-ng-click="$parent.viewPhoneNumber = ($parent.viewPhoneNumber == phoneNumber) ? null : phoneNumber">View</a></td>
-        </tr>
-    </table>
-
-    <div data-ng-show="viewPhoneNumber != null">
-        <h4>{{viewPhoneNumber.$entity.storedState.number}}</h4>
-        <form class="form-horizontal" data-ng-submit="viewPhoneNumber.$save()">
-            <div class="form-group">
-                <label for="number" class="col-sm-2 control-label">Number</label>
-                <div class="col-sm-6">
-                    <input type="text" data-ng-model="viewPhoneNumber.number" class="form-control" id="number" placeholder="555-555-5555">
-                </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-6">
-                    <button data-ng-disabled="!viewPhoneNumber.$isDirty()" type="submit" class="btn btn-success">Save</button>
-                </div>
-            </div>
-        </form>
-        <pre>{{ viewPhoneNumber | json }}</pre>
     </div>
 </div>
 
 <script type="text/javascript" src="../tests/lib/angular.js"></script>
 <script type="text/javascript" src="../src/_module.js"></script>
-<script type="text/javascript" src="../src/coma.provider.js"></script>
 <script type="text/javascript" src="../src/coma.adapterResponse.js"></script>
+<script type="text/javascript" src="../src/coma.baseModelService.js"></script>
 <script type="text/javascript" src="../src/coma.hasManyAssociation.js"></script>
 <script type="text/javascript" src="../src/coma.hasOneAssociation.js"></script>
+<script type="text/javascript" src="../src/coma.localStorage.js"></script>
 <script type="text/javascript" src="../src/coma.modelField.js"></script>
-<script type="text/javascript" src="../src/coma.preparedQueryOptions.js"></script>
 <script type="text/javascript" src="../src/coma.predicate.js"></script>
-<script type="text/javascript" src="../src/coma.baseModelService.js"></script>
+<script type="text/javascript" src="../src/coma.preparedQueryOptions.js"></script>
+<script type="text/javascript" src="../src/coma.provider.js"></script>
+<script type="text/javascript" src="../src/coma.syncHandler.js"></script>
 <script type="text/javascript" src="../src/adapters/indexedDB.adapter.js"></script>
+<script type="text/javascript" src="../src/adapters/odataREST.adapter.js"></script>
 <script type="text/javascript" src="module.js"></script>
 <script type="text/javascript" src="controllers/rootController.js"></script>
 <script type="text/javascript" src="models/phoneNumber.js"></script>

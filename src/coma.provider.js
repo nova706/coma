@@ -20,6 +20,12 @@ angular.module('coma').provider('coma', [
             return this;
         };
 
+        config.lastModifiedField = null;
+        this.setLastModifiedField = function (lastModifiedField) {
+            config.lastModifiedField = lastModifiedField;
+            return this;
+        };
+
         this.$get = ['comaBaseModelService', function (comaBaseModelService) {
             var service = {
                 config: config
@@ -27,6 +33,7 @@ angular.module('coma').provider('coma', [
 
             // To Avoid circular dependency, add the config to the baseModelService
             comaBaseModelService.setDirtyCheckThreshold(config.dirtyCheckThreshold);
+            comaBaseModelService.setLastModifiedField(config.lastModifiedField);
             if (config.localAdapter) {
                 comaBaseModelService.setLocalAdapter(config.localAdapter);
             }

@@ -7,10 +7,21 @@ angular.module('coma').factory("comaBaseModelService", [
     'comaModelField',
     'comaPreparedQueryOptions',
     'comaPredicate',
+    'comaSyncHandler',
 
-    function ($injector, $log, $q, HasManyAssociation, HasOneAssociation, ModelField, PreparedQueryOptions, Predicate) {
+    function ($injector,
+              $log,
+              $q,
+              HasManyAssociation,
+              HasOneAssociation,
+              ModelField,
+              PreparedQueryOptions,
+              Predicate,
+              comaSyncHandler) {
+
         var baseModelService = {
             dirtyCheckThreshold: 30,
+            lastModifiedField: null,
             localAdapter: {},
             remoteAdapter: {},
             models: {}
@@ -48,6 +59,14 @@ angular.module('coma').factory("comaBaseModelService", [
          */
         baseModelService.setDirtyCheckThreshold = function (dirtyCheckThreshold) {
             baseModelService.dirtyCheckThreshold = dirtyCheckThreshold;
+        };
+
+        /**
+         * Sets the field to be used as the last modified field required for synchronization.
+         * @param {String} lastModifiedField
+         */
+        baseModelService.setLastModifiedField = function (lastModifiedField) {
+            baseModelService.lastModifiedField = lastModifiedField;
         };
 
         /**
@@ -152,12 +171,15 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.fields = {};
             Entity.associations = [];
             Entity.primaryKeyFieldName = null;
+            Entity.localAdapter = localAdapter;
+            Entity.remoteAdapter = remoteAdapter;
             Entity.modelName = modelDefinition.name;
             Entity.dataSourceName = modelDefinition.dataSourceName || modelDefinition.name;
 
             var initializeEntityFields = function () {
                 var field;
                 var modelField;
+                var lastModifiedField;
                 for (field in modelDefinition.fields) {
                     if (modelDefinition.fields.hasOwnProperty(field)) {
                         modelField = new ModelField(field, modelDefinition.fields[field]);
@@ -169,10 +191,30 @@ angular.module('coma').factory("comaBaseModelService", [
                         if (!modelField.invalid) {
                             Entity.fields[field] = modelField;
                         }
+
+                        if (field === baseModelService.lastModifiedField) {
+                            lastModifiedField = modelField;
+                        }
                     }
                 }
+                if (lastModifiedField && lastModifiedField.type !== "Date") {
+                    $log.error('BaseModelService: The last modified field is not a Date field');
+                    return false;
+                }
+                if (baseModelService.lastModifiedField && !lastModifiedField) {
+                    Entity.fields[baseModelService.lastModifiedField] = new ModelField(baseModelService.lastModifiedField, {
+                        type: "Date",
+                        getDefaultValue: function () {
+                            return new Date();
+                        },
+                        index: true
+                    });
+                }
+                return true;
             };
-            initializeEntityFields();
+            if (!initializeEntityFields()) {
+                return null;
+            }
 
             // TODO: Support many to many associations
             var initializeAssociations = function () {
@@ -418,6 +460,20 @@ angular.module('coma').factory("comaBaseModelService", [
                     return $q.reject("The primary key was not supplied.");
                 }
                 return localAdapter.remove(new ComaModel(Entity), pk);
+            };
+
+            /**
+             * Synchronizes all modified entities between a local and remote adapter.
+             */
+            Entity.synchronize = function () {
+                return comaSyncHandler.model(Entity);
+            };
+
+            /**
+             * Synchronizes a single entity between a local and remote adapter.
+             */
+            Entity.prototype.$sync = function () {
+                return comaSyncHandler.entity(Entity, this);
             };
 
             /**

@@ -69,6 +69,10 @@ angular.module('comaDemo').controller('RootCtrl', [
             }
         };
 
+        $scope.syncPeople = function () {
+            Person.synchronize();
+        };
+
         $scope.dropDatabase = function () {
             window.indexedDB.deleteDatabase("comaDemo");
             location.reload();

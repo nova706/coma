@@ -14,6 +14,13 @@ angular.module('comaDemo').factory('PhoneNumber', [
                 primary: {
                     type: "Boolean",
                     index: "primary"
+                },
+                lastModified: {
+                    type: "Date",
+                    getDefaultValue: function () {
+                        return new Date();
+                    },
+                    index: true
                 }
             },
             associations: [

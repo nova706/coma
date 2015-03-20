@@ -22,6 +22,13 @@ angular.module('comaDemo').factory('Person', [
                         return new Date();
                     },
                     index: true
+                },
+                lastModified: {
+                    type: "Date",
+                    getDefaultValue: function () {
+                        return new Date();
+                    },
+                    index: true
                 }
             },
             associations: [

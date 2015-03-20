@@ -5,6 +5,9 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
 
         providerConfig.serverAPILocation = "/api/";
         this.setServerAPILocation = function (serverAPILocation) {
+            if (serverAPILocation.substring(serverAPILocation.length - 1) !== "/") {
+                serverAPILocation += '/';
+            }
             providerConfig.serverAPILocation = serverAPILocation;
             return this;
         };
@@ -39,12 +42,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                 $http.post(url, modelInstance)
                     .success(function (data, status, headers, config) {
                         response = new AdapterResponse(data, 1, status, headers, config);
-                        $log.debug('ODataRESTAdapter: Create', response, theModel);
+                        $log.debug('ODataRESTAdapter: Create ' + theModel.modelName, response);
                         dfd.resolve(response);
                     })
                     .error(function (error, status, headers, config) {
                         response = new AdapterResponse(error, 0, status, headers, config);
-                        $log.error('ODataRESTAdapter: Create', response, modelInstance, theModel);
+                        $log.error('ODataRESTAdapter: Create ' + theModel.modelName, response, modelInstance);
                         dfd.reject(response);
                     });
 
@@ -57,7 +60,7 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
 
                 if (!pk) {
                     response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
-                    $log.error('ODataRESTAdapter: FindOne', response, pk, queryOptions, theModel);
+                    $log.error('ODataRESTAdapter: FindOne ' + theModel.modelName, response, pk, queryOptions);
                     return $q.reject(response);
                 }
 
@@ -66,12 +69,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                 $http.get(url)
                     .success(function (data, status, headers, config) {
                         response = new AdapterResponse(data, 1, status, headers, config);
-                        $log.debug('ODataRESTAdapter: FindOne', response, pk, queryOptions, theModel);
+                        $log.debug('ODataRESTAdapter: FindOne ' + theModel.modelName, response, pk, queryOptions);
                         dfd.resolve(response);
                     })
                     .error(function (error, status, headers, config) {
                         response = new AdapterResponse(error, 0, status, headers, config);
-                        $log.error('ODataRESTAdapter: FindOne', response, pk, queryOptions, theModel);
+                        $log.error('ODataRESTAdapter: FindOne ' + theModel.modelName, response, pk, queryOptions);
                         dfd.reject(response);
                     });
 
@@ -99,12 +102,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                         }
 
                         response = new AdapterResponse(results, totalCount, status, headers, config);
-                        $log.debug('ODataRESTAdapter: Find', response, queryOptions, theModel);
+                        $log.debug('ODataRESTAdapter: Find ' + theModel.modelName, response, queryOptions);
                         dfd.resolve(response);
                     })
                     .error(function (error, status, headers, config) {
                         response = new AdapterResponse(error, 0, status, headers, config);
-                        $log.error('ODataRESTAdapter: Find', response, queryOptions, theModel);
+                        $log.error('ODataRESTAdapter: Find ' + theModel.modelName, response, queryOptions);
                         dfd.reject(response);
                     });
 
@@ -117,7 +120,7 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
 
                 if (!pk) {
                     response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
-                    $log.error('ODataRESTAdapter: FindOne', response, modelInstance, theModel);
+                    $log.error('ODataRESTAdapter: Update ' + theModel.modelName, response, modelInstance);
                     return $q.reject(response);
                 }
 
@@ -126,12 +129,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                 $http.put(url, modelInstance)
                     .success(function (data, status, headers, config) {
                         response = new AdapterResponse(data, 1, status, headers, config);
-                        $log.debug('ODataRESTAdapter: Update', response, modelInstance, theModel);
+                        $log.debug('ODataRESTAdapter: Update ' + theModel.modelName, response, modelInstance);
                         dfd.resolve(response);
                     })
                     .error(function (error, status, headers, config) {
                         response = new AdapterResponse(error, 0, status, headers, config);
-                        $log.error('ODataRESTAdapter: Update', response, modelInstance, theModel);
+                        $log.error('ODataRESTAdapter: Update ' + theModel.modelName, response, modelInstance);
                         dfd.reject(response);
                     });
 
@@ -144,7 +147,7 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
 
                 if (!pk) {
                     response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
-                    $log.error('ODataRESTAdapter: FindOne', response, pk, theModel);
+                    $log.error('ODataRESTAdapter: Remove ' + theModel.modelName, response, pk);
                     return $q.reject(response);
                 }
 
@@ -153,12 +156,46 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                 $http({method: 'DELETE', url: url})
                     .success(function (data, status, headers, config) {
                         response = new AdapterResponse(data, 1, status, headers, config);
-                        $log.debug('ODataRESTAdapter: Remove', response, pk, theModel);
+                        $log.debug('ODataRESTAdapter: Remove ' + theModel.modelName, response, pk);
                         dfd.resolve(response);
                     })
                     .error(function (error, status, headers, config) {
                         response = new AdapterResponse(error, 0, status, headers, config);
-                        $log.error('ODataRESTAdapter: Remove', response, pk, theModel);
+                        $log.error('ODataRESTAdapter: Remove ' + theModel.modelName, response, pk);
+                        dfd.reject(response);
+                    });
+
+                return dfd.promise;
+            };
+
+            adapter.synchronize = function (theModel, dataToSync, lastSync) {
+                var dfd = $q.defer();
+                var response;
+
+                var url = providerConfig.serverAPILocation + theModel.dataSourceName;
+                var lastSyncTime = lastSync ? lastSync.getTime() : 0;
+
+                $http.put(url, {data: dataToSync, lastSync: lastSyncTime})
+                    .success(function (data, status, headers, config) {
+                        var results = data;
+                        var totalCount;
+
+                        if (providerConfig.resultsField) {
+                            if (data[providerConfig.resultsField]) {
+                                results = data[providerConfig.resultsField];
+                            }
+                            if (providerConfig.totalCountFiled && data[providerConfig.totalCountFiled]) {
+                                totalCount = data[providerConfig.totalCountFiled];
+                            }
+                        }
+
+                        response = new AdapterResponse(results, totalCount, status, headers, config);
+                        $log.debug('ODataRESTAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
+                        dfd.resolve(response);
+                    })
+                    .error(function (error, status, headers, config) {
+                        response = new AdapterResponse(error, 0, status, headers, config);
+                        $log.error('ODataRESTAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
                         dfd.reject(response);
                     });
 
