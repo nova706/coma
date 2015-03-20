@@ -421,7 +421,7 @@ angular.module('coma').factory("comaBaseModelService", [
                         });
                     } else if (Model && association.type === 'hasMany') {
 
-                        var predicate = new Predicate(association.foreignKey).equals(self[Entity.primaryKeyFieldName]);
+                        var predicate = new Predicate(association.mappedBy).equals(self[Entity.primaryKeyFieldName]);
                         var queryOptions = new PreparedQueryOptions().$filter(predicate);
 
                         adapter.find(new ComaModel(Model), queryOptions).then(function (response) {
