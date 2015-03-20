@@ -4,11 +4,11 @@ describe("IndexedDBAdapter", function () {
     beforeEach(module('coma.adapter.indexedDB'));
 
     var adapter;
+    var $rootScope;
+    var $timeout;
     var isFunc = function (a) {
         return typeof a === 'function';
     };
-
-    var noop = function () { return null; };
 
     var model = {
         dataSourceName: "testEndpoint",
@@ -17,153 +17,21 @@ describe("IndexedDBAdapter", function () {
         }
     };
 
-    var mockData = {};
-    var mockObjectStores = [];
-    var mockDatabase;
-    var mockTransaction;
-    var mockObjectStore;
-    var mockIndex;
-    var mockCursor;
+    var mockIndexedDB;
 
-    beforeEach(inject(function (comaIndexedDBAdapter, $window, $timeout) {
+    beforeEach(inject(function (_$rootScope_, _$timeout_) {
+        $rootScope = _$rootScope_;
+        $timeout = _$timeout_;
+    }));
+
+    beforeEach(inject(function (comaIndexedDBAdapter, $window) {
         adapter = comaIndexedDBAdapter;
-
-        mockDatabase = {
-            onversionchange: noop,
-            objectStoreNames: {
-                contains: function (storeName) {
-                    return mockObjectStores.indexOf(storeName);
-                }
-            },
-            createObjectStore: function (storeName, properties) {
-                mockObjectStores.push(storeName);
-                return mockObjectStore;
-            },
-            transaction: function (tables, mode) {
-                return mockTransaction;
-            },
-            close: function () {
-                return true;
-            }
-        };
-
-        mockTransaction = {
-            objectStore: function (storeName) {
-                return mockObjectStore;
-            }
-        };
-
-        mockObjectStore = {
-            createIndex: function (field, index, properties) {
-                return true;
-            },
-            add: function (instance) {
-                var toReturn = {
-                    onsuccess: noop,
-                    onerror: noop
-                };
-
-                this.result = "id";
-
-                $timeout(function () {
-                    toReturn.onsuccess();
-                });
-
-                return toReturn;
-            },
-            get: function (pk) {
-                var toReturn = {
-                    onsuccess: noop,
-                    onerror: noop
-                };
-
-                this.result = mockData[pk];
-
-                $timeout(function () {
-                    toReturn.onsuccess();
-                });
-
-                return toReturn;
-            },
-            put: function (instance) {
-                var toReturn = {
-                    onsuccess: noop,
-                    onerror: noop
-                };
-
-                $timeout(function () {
-                    toReturn.onsuccess();
-                });
-
-                return toReturn;
-            },
-            delete: function () {
-                var toReturn = {
-                    onsuccess: noop,
-                    onerror: noop
-                };
-
-                $timeout(function () {
-                    toReturn.onsuccess();
-                });
-
-                return toReturn;
-            },
-            openCursor: function () {
-                var toReturn = {
-                    onsuccess: noop,
-                    onerror: noop
-                };
-
-                $timeout(function () {
-                    toReturn.onsuccess({
-                        target: {
-                            result: new mockCursor(toReturn.onsuccess)
-                        }
-                    });
-                });
-
-                return toReturn;
-            },
-            index: function (indexName) {
-                return mockIndex;
-            }
-        };
-
-        mockIndex = {
-            openCursor: function () {}
-        };
-
-        mockCursor = function (call) {
-            this.continue = function () {
-                call({
-                    target: {
-                        result: false
-                    }
-                });
-            };
-            this.value = {name: "John"};
-        };
-
-        $window.indexedDB = {
-            open: function () {
-                var toReturn = {
-                    onupgradeneeded: noop,
-                    onsuccess: noop,
-                    onerror: noop
-                };
-
-                $timeout(function () {
-                    toReturn.onsuccess({
-                        target: {
-                            result: mockDatabase
-                        }
-                    });
-                });
-
-                return toReturn;
-            }
-        };
+        mockIndexedDB = window.MockIndexedDB($timeout);
+        if ($window.indexedDB) {
+            angular.extend($window.indexedDB, mockIndexedDB);
+        } else {
+            $window.indexedDB = mockIndexedDB;
+        }
     }));
 
     it("Should provide the basic CRUD methods", function () {
@@ -179,12 +47,101 @@ describe("IndexedDBAdapter", function () {
             var promise = adapter.create(model, {name: "John"});
             should.equal(true, isFunc(promise.then));
         });
+
+        it("Should resolve a proper response", function () {
+            var response = {};
+
+            adapter.create(model, {name: "John"}).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(201);
+        });
+
+        it("Should reject with a proper error", function () {
+            mockIndexedDB.rejectTransaction();
+            var response = {};
+
+            adapter.create(model, {name: "John"}).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when connection fails", function () {
+            mockIndexedDB.rejectConnection();
+            var response = {};
+
+            adapter.create(model, {name: "John"}).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
     });
 
     describe("FindOne", function () {
         it("Should return a promise", function () {
             var promise = adapter.findOne(model, 1);
             should.equal(true, isFunc(promise.then));
+        });
+
+        it("Should resolve a proper response", function () {
+            mockIndexedDB.setTransactionResult({id: 1, name: "John"});
+            var response = {};
+
+            adapter.findOne(model, 1).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error", function () {
+            mockIndexedDB.rejectTransaction();
+            var response = {};
+
+            adapter.findOne(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when connection fails", function () {
+            mockIndexedDB.rejectConnection();
+            var response = {};
+
+            adapter.findOne(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
         });
     });
 
@@ -193,6 +150,51 @@ describe("IndexedDBAdapter", function () {
             var promise = adapter.find(model);
             should.equal(true, isFunc(promise.then));
         });
+
+        it("Should resolve a proper response", function () {
+            mockIndexedDB.setTransactionResult({id: 1, name: "John"});
+            var response = {};
+
+            adapter.find(model).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error", function () {
+            mockIndexedDB.rejectTransaction();
+            var response = {};
+
+            adapter.find(model).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when connection fails", function () {
+            mockIndexedDB.rejectConnection();
+            var response = {};
+
+            adapter.find(model).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
     });
 
     describe("Update", function () {
@@ -200,12 +202,101 @@ describe("IndexedDBAdapter", function () {
             var promise = adapter.update(model, 1, {name: "John"});
             should.equal(true, isFunc(promise.then));
         });
+
+        it("Should resolve a proper response", function () {
+            mockIndexedDB.setTransactionResult({id: 1, name: "John"});
+            var response = {};
+
+            adapter.update(model, 1, {name: "John"}).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error", function () {
+            mockIndexedDB.rejectTransaction();
+            var response = {};
+
+            adapter.update(model, 1, {name: "John"}).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when connection fails", function () {
+            mockIndexedDB.rejectConnection();
+            var response = {};
+
+            adapter.update(model, 1, {name: "John"}).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
     });
 
     describe("Remove", function () {
         it("Should return a promise", function () {
             var promise = adapter.remove(model, 1);
             should.equal(true, isFunc(promise.then));
+        });
+
+        it("Should resolve a proper response", function () {
+            var response = {};
+
+            adapter.remove(model, 1).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            should.equal(null, response.data);
+            response.count.should.equal(1);
+            response.status.should.equal(204);
+        });
+
+        it("Should reject with a proper error", function () {
+            mockIndexedDB.rejectTransaction();
+            var response = {};
+
+            adapter.remove(model, 1, {name: "John"}).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when connection fails", function () {
+            mockIndexedDB.rejectConnection();
+            var response = {};
+
+            adapter.remove(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
         });
     });
 });

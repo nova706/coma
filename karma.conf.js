@@ -7,6 +7,7 @@ module.exports = function (config) {
         files: [
             'tests/lib/angular.js',
             'tests/lib/angular-mocks.js',
+            'tests/helpers/mockIndexedDB.js',
             'src/**/*.js',
             'tests/src/**/*.js'
         ],

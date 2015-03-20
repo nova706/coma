@@ -42,7 +42,6 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
         this.$get = ['$log', '$q', '$window', 'coma', 'comaAdapterResponse', function ($log, $q, $window, coma, AdapterResponse) {
 
             var adapter = {};
-            var idb = $window.indexedDB;
             var db;
 
             var generatePrimaryKey = providerConfig.pkGenerator;
@@ -90,7 +89,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                 if (db) {
                     dfd.resolve(db);
                 } else {
-                    var openRequest = idb.open(providerConfig.dbName, providerConfig.dbVersion);
+                    var openRequest = $window.indexedDB.open(providerConfig.dbName, providerConfig.dbVersion);
 
                     openRequest.onupgradeneeded = function (event) {
                         $log.info('IndexedDBAdapter: Migrating...', event);
