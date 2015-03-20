@@ -6,7 +6,7 @@ angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB']).config([
     'comaIndexedDBAdapterProvider',
 
     function (comaProvider, comaIndexedDBAdapterProvider) {
-        comaProvider.setAdapter('comaIndexedDBAdapter');
+        comaProvider.setLocalAdapter('comaIndexedDBAdapter');
         comaIndexedDBAdapterProvider.setDbName("comaDemo");
         comaIndexedDBAdapterProvider.setDbVersion(1);
     }

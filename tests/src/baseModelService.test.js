@@ -4,9 +4,20 @@ describe("BaseModelService", function () {
     beforeEach(module('coma'));
 
     var baseModelService;
+    var testAdapter = {};
 
     beforeEach(inject(function (comaBaseModelService) {
         baseModelService = comaBaseModelService;
+
+        testAdapter = {
+            create: function () { return null; },
+            findOne: function () { return null; },
+            find: function () { return null; },
+            update: function () { return null; },
+            remove: function () { return null; }
+        };
+
+        baseModelService.setLocalAdapter(testAdapter);
     }));
 
     var personModelDefinition = {
@@ -70,10 +81,17 @@ describe("BaseModelService", function () {
         });
     });
 
-    describe("Set Default Adapter", function () {
-        it("Should set the default adapter", function () {
-            baseModelService.setDefaultAdapter("test");
-            baseModelService.defaultAdapter.should.equal("test");
+    describe("Set Local Adapter", function () {
+        it("Should set the local adapter", function () {
+            baseModelService.setLocalAdapter("test");
+            baseModelService.localAdapter.should.equal("test");
+        });
+    });
+
+    describe("Set Remote Adapter", function () {
+        it("Should set the remote adapter", function () {
+            baseModelService.setRemoteAdapter("test");
+            baseModelService.remoteAdapter.should.equal("test");
         });
     });
 

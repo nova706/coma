@@ -2,9 +2,15 @@ angular.module('coma').provider('coma', [
     function () {
         var config = {};
 
-        config.adapter = 'comaIndexedDBAdapter'; // TODO: Add fallback for when indexedDB is not supported
-        this.setAdapter = function (adapter) {
-            config.adapter = adapter;
+        config.localAdapter = null;
+        this.setLocalAdapter = function (localAdapter) {
+            config.localAdapter = localAdapter;
+            return this;
+        };
+
+        config.remoteAdapter = null;
+        this.setRemoteAdapter = function (remoteAdapter) {
+            config.remoteAdapter = remoteAdapter;
             return this;
         };
 
@@ -21,7 +27,12 @@ angular.module('coma').provider('coma', [
 
             // To Avoid circular dependency, add the config to the baseModelService
             comaBaseModelService.setDirtyCheckThreshold(config.dirtyCheckThreshold);
-            comaBaseModelService.setDefaultAdapter(config.adapter);
+            if (config.localAdapter) {
+                comaBaseModelService.setLocalAdapter(config.localAdapter);
+            }
+            if (config.remoteAdapter) {
+                comaBaseModelService.setRemoteAdapter(config.remoteAdapter);
+            }
 
             // Add Aliases from the base model service
             service.getModels = comaBaseModelService.getModels;
