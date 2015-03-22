@@ -566,7 +566,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     $q.all(promises).then(function (results) {
                         response = new AdapterResponse(results, results.length, AdapterResponse.OK);
                         $log.debug('IndexedDBAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
-                        dfd.reject(response);
+                        dfd.resolve(response);
                     }, function (e) {
                         dfd.reject(buildError(e));
                     });

@@ -385,6 +385,10 @@ angular.module('coma').factory('comaPredicate', [
          * @returns {string} The string value
          */
         utils.escapeValue = function (value) {
+            // TODO: Need a better way to handle dates being assigned in the predicate
+            if (value instanceof Date) {
+                return value.getTime();
+            }
             return (typeof value === 'string') ? "'" + value + "'" : value.toString();
         };
 
@@ -501,12 +505,15 @@ angular.module('coma').factory('comaPredicate', [
                     value = true;
                 }
 
+                // TODO: Need a better way to handle dates being assigned in the predicate
                 var resultValue = objectValue;
                 if (resultValue instanceof Date && !isNaN(Date.parse(value))) {
                     value = Date.parse(value);
-                } else if (typeof resultValue === 'string' && !isNaN(Date.parse(resultValue) && !isNaN(Date.parse(value)))) {
+                } else if (typeof resultValue === 'string' && !isNaN(Date.parse(resultValue))) {
                     resultValue = Date.parse(resultValue);
-                    value = Date.parse(value);
+                    if (typeof value !== 'number' && isNaN(Date.parse(value))) {
+                        value = Date.parse(value);
+                    }
                 }
 
                 /*jslint eqeq: true*/

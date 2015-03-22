@@ -18,7 +18,7 @@ angular.module('coma').factory('comaSyncHandler', [
         syncHandler.getLastSyncTime = function (Model) {
             var lastSync = comaLocalStorage.get(comaLocalStorage.keys.LAST_SYNC, Model.modelName);
             if (lastSync) {
-                return new Date(lastSync);
+                return new Date(parseInt(lastSync, 10));
             }
 
             // This client has no sync record for this Model.
@@ -77,8 +77,8 @@ angular.module('coma').factory('comaSyncHandler', [
             syncHandler.sendSyncRequestData(Model, data).then(function (syncResponse) {
                 // TODO: Handle Conflicts
 
-                $log.debug('Sync Handler: Found ' + syncResponse.count + ' remote item(s) to sync');
-                totalItemsProcessed += syncResponse.count + 1;
+                $log.debug('Sync Handler: Found ' + syncResponse.data.length + ' remote item(s) to sync');
+                totalItemsProcessed += syncResponse.data.length;
                 syncResponseData = syncResponse.data;
                 syncHandler.processSyncResponseData(Model, syncResponse.data).then(function () {
                     result = new SyncResult(data, syncResponseData, totalItemsProcessed, 'Complete');

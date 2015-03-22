@@ -152,15 +152,17 @@ angular.module('coma').factory("comaBaseModelService", [
              * @param {Object} object The object to construct the entity from
              * @param {Boolean} [persisted = false] Set to true if this model was created from an object that came
              *                                         from an adapter.
+             * @param {Object} [adapter=localAdapter] The adapter used to fetch the Entity.
              * @constructor
              */
-            var Entity = function (object, persisted) {
+            var Entity = function (object, persisted, adapter) {
                 Entity.extendFromRawObject(this, object);
 
                 this.$entity = {
-                    persisted: persisted === true,
+                    adapter: adapter || localAdapter,
                     lastDirtyCheck: new Date().getTime(),
                     lastDirtyState: false,
+                    persisted: persisted === true,
                     saveInProgress: false,
                     storedState: null
                 };
@@ -408,16 +410,20 @@ angular.module('coma').factory("comaBaseModelService", [
              * @method findOne
              * @param {String} pk The primary key of the model to retrieve
              * @param {Object} [queryOptions] Query options to use for retrieval
+             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise} Resolves with the model
              */
-            Entity.findOne = function (pk, queryOptions) {
+            Entity.findOne = function (pk, queryOptions, remote) {
                 if (!pk) {
                     $log.error('BaseModelService: FindOne', 'The primary key was not supplied');
                     return $q.reject("The primary key was not supplied.");
                 }
-                return localAdapter.findOne(new ComaModel(Entity), pk, queryOptions).then(function (response) {
+
+                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
+
+                return adapter.findOne(new ComaModel(Entity), pk, queryOptions).then(function (response) {
                     var result = Entity.transformResult(response.data);
-                    var entity = new Entity(result, true);
+                    var entity = new Entity(result, true, adapter);
                     $log.debug("BaseModelService: FindOne", new Response(entity), response, queryOptions);
                     return entity;
                 }, propagateError);
@@ -429,14 +435,17 @@ angular.module('coma').factory("comaBaseModelService", [
              *
              * @method find
              * @param {Object} [queryOptions] Query options to use for retrieval
+             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise} Resolves with data.results and data.totalCount where results are models
              */
-            Entity.find = function (queryOptions) {
-                return localAdapter.find(new ComaModel(Entity), queryOptions).then(function (response) {
+            Entity.find = function (queryOptions, remote) {
+                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
+
+                return adapter.find(new ComaModel(Entity), queryOptions).then(function (response) {
                     var results = [];
                     var i;
                     for (i = 0; i < response.data.length; i++) {
-                        results.push(new Entity(Entity.transformResult(response.data[i]), true));
+                        results.push(new Entity(Entity.transformResult(response.data[i]), true, adapter));
                     }
 
                     var clientResponse = {
@@ -452,14 +461,18 @@ angular.module('coma').factory("comaBaseModelService", [
              * Removes the model from the adapter given a primary key.
              *
              * @method remove
+             * @param {String} pk The primary key of the model to remove
+             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise}
              */
-            Entity.remove = function (pk) {
+            Entity.remove = function (pk, remote) {
                 if (!pk) {
                     $log.error('BaseModelService: Remove', 'The primary key was not supplied');
                     return $q.reject("The primary key was not supplied.");
                 }
-                return localAdapter.remove(new ComaModel(Entity), pk);
+
+                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
+                return adapter.remove(new ComaModel(Entity), pk);
             };
 
             /**
@@ -489,7 +502,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 if (association) {
                     var Model = association.getModel();
                     if (Model && association.type === 'hasOne' && self[association.foreignKey] !== undefined) {
-                        localAdapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (response) {
+                        self.$entity.adapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (response) {
                             self[association.alias] = Model.getRawModelObject(response.data);
                             self.$entity.storedState[association.alias] = Model.getRawModelObject(response.data);
                             $log.debug("BaseModelService: $expand", association.type, associationName, self, response);
@@ -503,7 +516,7 @@ angular.module('coma').factory("comaBaseModelService", [
                         var predicate = new Predicate(association.mappedBy).equals(self[Entity.primaryKeyFieldName]);
                         var queryOptions = new PreparedQueryOptions().$filter(predicate);
 
-                        localAdapter.find(new ComaModel(Model), queryOptions).then(function (response) {
+                        self.$entity.adapter.find(new ComaModel(Model), queryOptions).then(function (response) {
                             var base = [];
                             var stored = [];
                             var i;
@@ -579,13 +592,16 @@ angular.module('coma').factory("comaBaseModelService", [
              * the model if it does not exist.
              *
              * @method $save
+             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
              * @returns {promise} Resolves with the model
              */
-            Entity.prototype.$save = function () {
+            Entity.prototype.$save = function (remote) {
                 var self = this;
                 var itemToSave = Entity.preSave(this);
 
                 this.$entity.saveInProgress = true;
+
+                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : self.$entity.adapter;
 
                 // The model exists in the DB
                 if (self.$entity.persisted && itemToSave[Entity.primaryKeyFieldName]) {
@@ -593,15 +609,17 @@ angular.module('coma').factory("comaBaseModelService", [
 
                     if (!self.$isValid()) {
                         $log.warn("BaseModelService: $save: aborted", self, self[Entity.primaryKeyFieldName]);
+                        self.$reset();
                         return $q.reject("aborted");
                     }
 
-                    return localAdapter.update(new ComaModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
+                    return adapter.update(new ComaModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
                         var result = Entity.transformResult(response.data);
                         Entity.extendFromRawObject(self, result);
                         self.$storeState();
                         self.$entity.persisted = true;
                         self.$entity.saveInProgress = false;
+                        self.$entity.adapter = adapter;
                         $log.debug("BaseModelService: $save: update", self, itemToSave, response);
                         return self;
                     }, function (e) {
@@ -617,15 +635,17 @@ angular.module('coma').factory("comaBaseModelService", [
 
                 if (!self.$isValid()) {
                     $log.warn("BaseModelService: $save: aborted", self, self[Entity.primaryKeyFieldName]);
+                    self.$reset();
                     return $q.reject("aborted");
                 }
 
-                return localAdapter.create(new ComaModel(Entity), itemToSave).then(function (response) {
+                return adapter.create(new ComaModel(Entity), itemToSave).then(function (response) {
                     var result = Entity.transformResult(response.data);
                     Entity.extendFromRawObject(self, result);
                     self.$storeState();
                     self.$entity.persisted = true;
                     self.$entity.saveInProgress = false;
+                    self.$entity.adapter = adapter;
                     $log.debug("BaseModelService: $save: create", self, itemToSave, response);
                     return self;
                 }, function (e) {

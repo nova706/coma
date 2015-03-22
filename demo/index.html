@@ -27,89 +27,123 @@
 <body>
 <div data-ng-controller="RootCtrl" class="container">
     <div class="header clearfix">
-        <button class="pull-right btn btn-danger" data-ng-click="dropDatabase()">Drop Database</button>
+        <div class="pull-right">
+            <button class="btn btn-default" data-ng-click="dropDatabase()">Drop Local Database</button>
+            <button class="btn btn-primary" data-ng-click="syncPeople()">Sync</button>
+        </div>
         <h3 class="text-muted">Coma Playground</h3>
     </div>
 
-    <div class="pull-right">
-        <button class="btn btn-primary" data-ng-click="createPerson()">New</button>
-        <button class="btn btn-success" data-ng-click="syncPeople()">Sync</button>
-    </div>
-    <h4>People</h4>
-    <br />
+    <div class="ng-cloak">
+        <ul class="nav nav-tabs nav-justified">
+            <li data-ng-class="{active: view == 'local'}"><a href data-ng-click="view = 'local'">Local</a></li>
+            <li data-ng-class="{active: view == 'remote'}"><a href data-ng-click="view = 'remote'">Remote</a></li>
+        </ul>
 
-    <table class="ng-cloak table table-hover">
-        <tr data-ng-repeat="person in people track by person.id"
-            data-ng-click="$parent.viewPhoneNumber = null; $parent.viewPerson = ($parent.viewPerson == person) ? null : person"
-            data-ng-class="{active: $parent.viewPerson == person}"
-            style="cursor: pointer">
-            <td>{{ person.added | date:'short' }}</td>
-            <td>{{ person.$entity.storedState.firstName }} {{ person.$entity.storedState.lastName }}</td>
-        </tr>
-    </table>
+        <br/>
 
-    <div class="ng-cloak" data-ng-show="viewPerson != null">
-        <h4>{{viewPerson.$entity.storedState.firstName}} {{viewPerson.$entity.storedState.lastName}}</h4>
-        <form class="form-horizontal">
-            <div class="form-group">
-                <label for="firstName" class="col-sm-2 control-label">First Name</label>
-                <div class="col-sm-6">
-                    <input type="text" data-ng-model="viewPerson.firstName" class="form-control" id="firstName" placeholder="First Name">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="lastName" class="col-sm-2 control-label">Last Name</label>
-                <div class="col-sm-6">
-                    <input type="text" data-ng-model="viewPerson.lastName" class="form-control" id="lastName" placeholder="Last Name">
-                </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button data-ng-disabled="!viewPerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="viewPerson.$save('local')">Save Locally</button>
-                    <button data-ng-disabled="!viewPerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="viewPerson.$save('remote')">Save Remotely</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <button type="button" class="btn btn-primary" data-ng-click="addPhoneNumber(viewPerson)">Add Phone Number</button>
-                    <button type="button" class="btn btn-default" data-ng-click="viewPerson.$expand('phoneNumbers')">Refresh Phone Numbers</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10">
-                    <table class="table table-striped">
-                        <tr data-ng-repeat="phoneNumber in viewPerson.phoneNumbers track by phoneNumber.id">
-                            <td>{{ phoneNumber.number }}</td>
-                            <td>Primary: {{ phoneNumber.primary }}</td>
-                            <td style="width: 72px"><a class="btn btn-danger" data-ng-click="removePhoneNumber(phoneNumber); viewPerson.phoneNumbers.splice($index, 1); viewPerson.$storeState()">Remove</a></td>
-                            <td style="width: 72px"><a class="btn btn-default" data-ng-class="{active: $parent.viewPhoneNumber == phoneNumber}" data-ng-click="$parent.viewPhoneNumber = ($parent.viewPhoneNumber == phoneNumber) ? null : phoneNumber">Edit</a></td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-        </form>
-        <div data-ng-show="viewPhoneNumber != null">
-            <h4>{{viewPhoneNumber.$entity.storedState.number}}</h4>
-            <form class="form-horizontal" data-ng-submit="viewPhoneNumber.$save()">
-                <div class="form-group">
-                    <label for="number" class="col-sm-2 control-label">Number</label>
-                    <div class="col-sm-6">
-                        <input type="text" data-ng-model="viewPhoneNumber.number" class="form-control" id="number" placeholder="555-555-5555">
+        <div data-ng-show="view == 'local'">
+            <button class="pull-right btn btn-primary" data-ng-click="createPerson()">New</button>
+            <h4>Local People</h4>
+            <br />
+
+            <table class="ng-cloak table table-hover">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Last Modified</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tr data-ng-repeat="person in localPeople track by person.id"
+                    data-ng-click="viewPerson(person)"
+                    data-ng-class="{active: $parent.localPerson.id == person.id}"
+                    style="cursor: pointer">
+                    <td>{{ person.$entity.storedState.firstName }} {{ person.$entity.storedState.lastName }}</td>
+                    <td>{{ person.lastModified | date:'short' }}</td>
+                    <td style="width: 1px"><a class="btn btn-danger btn-sm" data-ng-click="removePerson(person, $index)">Remove</a></td>
+                </tr>
+            </table>
+
+            <div data-ng-show="localPerson">
+                <h4>{{localPerson.$entity.storedState.firstName}} {{localPerson.$entity.storedState.lastName}}</h4>
+                <form class="form-horizontal">
+                    <div class="form-group">
+                        <label for="firstName" class="col-sm-2 control-label">First Name</label>
+                        <div class="col-sm-6">
+                            <input type="text" data-ng-model="localPerson.firstName" class="form-control" id="firstName" placeholder="First Name">
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <div class="col-sm-offset-2 col-sm-10">
-                        <button data-ng-disabled="!viewPhoneNumber.$isDirty()" type="submit" class="btn btn-success">Save</button>
+                    <div class="form-group">
+                        <label for="lastName" class="col-sm-2 control-label">Last Name</label>
+                        <div class="col-sm-6">
+                            <input type="text" data-ng-model="localPerson.lastName" class="form-control" id="lastName" placeholder="Last Name">
+                        </div>
                     </div>
-                </div>
-            </form>
-            <pre>{{ viewPhoneNumber | json }}</pre>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button data-ng-disabled="!localPerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="localPerson.$save()">Save</button>
+                        </div>
+                    </div>
+                </form>
+                <pre>{{ localPerson | json }}</pre>
+            </div>
         </div>
-        <pre>{{ viewPerson | json }}</pre>
+
+        <div data-ng-show="view == 'remote'">
+            <button class="pull-right btn btn-primary" data-ng-click="createPerson(true)">New</button>
+            <h4>Remote People</h4>
+            <br />
+
+            <table class="ng-cloak table table-hover">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Last Modified</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tr data-ng-repeat="person in remotePeople track by person.id"
+                    data-ng-click="viewPerson(person)"
+                    data-ng-class="{active: $parent.remotePerson.id == person.id}"
+                    style="cursor: pointer">
+                    <td>{{ person.$entity.storedState.firstName }} {{ person.$entity.storedState.lastName }}</td>
+                    <td>{{ person.lastModified | date:'short' }}</td>
+                    <td style="width: 1px"><a class="btn btn-danger btn-sm" data-ng-click="removePerson(person, $index, true)">Remove</a></td>
+                </tr>
+            </table>
+
+            <div data-ng-show="remotePerson">
+                <h4>{{remotePerson.$entity.storedState.firstName}} {{remotePerson.$entity.storedState.lastName}}</h4>
+                <form class="form-horizontal">
+                    <div class="form-group">
+                        <label for="remoteFirstName" class="col-sm-2 control-label">First Name</label>
+                        <div class="col-sm-6">
+                            <input type="text" data-ng-model="remotePerson.firstName" class="form-control" id="remoteFirstName" placeholder="First Name">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="remoteLastName" class="col-sm-2 control-label">Last Name</label>
+                        <div class="col-sm-6">
+                            <input type="text" data-ng-model="remotePerson.lastName" class="form-control" id="remoteLastName" placeholder="Last Name">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button data-ng-disabled="!remotePerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="remotePerson.$save()">Save</button>
+                        </div>
+                    </div>
+                </form>
+                <pre>{{ remotePerson | json }}</pre>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script type="text/javascript" src="../tests/lib/angular.js"></script>
+<script type="text/javascript" src="../tests/lib/angular-mocks.js"></script>
+<script type="text/javascript" src="lib/moment-2.8.2/moment.js"></script>
 <script type="text/javascript" src="../src/_module.js"></script>
 <script type="text/javascript" src="../src/coma.adapterResponse.js"></script>
 <script type="text/javascript" src="../src/coma.baseModelService.js"></script>
@@ -124,7 +158,8 @@
 <script type="text/javascript" src="../src/adapters/indexedDB.adapter.js"></script>
 <script type="text/javascript" src="../src/adapters/odataREST.adapter.js"></script>
 <script type="text/javascript" src="module.js"></script>
-<script type="text/javascript" src="controllers/rootController.js"></script>
+<script type="text/javascript" src="rootController.js"></script>
+<script type="text/javascript" src="mockBackend/mockBackend.js"></script>
 <script type="text/javascript" src="models/phoneNumber.js"></script>
 <script type="text/javascript" src="models/person.js"></script>
 </body>

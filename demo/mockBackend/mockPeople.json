@@ -1,0 +1,8 @@
+[
+    {
+        "id": "1",
+        "firstName": "John",
+        "lastName": "Doe",
+        "lastModified": "{{new Date().getTime()}}"
+    }
+]
