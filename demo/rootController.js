@@ -107,12 +107,6 @@ angular.module('comaDemo').controller('RootCtrl', [
             });
         };
 
-        $scope.dropDatabase = function () {
-            if (confirm("Are you sure? This will delete your local database.")) {
-                window.indexedDB.deleteDatabase("comaDemo");
-            }
-        };
-
         queryPeople();
     }
 ]);

@@ -183,6 +183,7 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.associations = [];
             Entity.primaryKeyFieldName = null;
             Entity.lastModifiedFieldName = baseModelService.lastModifiedFieldName;
+            Entity.deletedFieldName = baseModelService.deletedFieldName;
             Entity.localAdapter = localAdapter;
             Entity.remoteAdapter = remoteAdapter;
             Entity.modelName = modelDefinition.name;
