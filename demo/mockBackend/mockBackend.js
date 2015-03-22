@@ -63,7 +63,9 @@ angular.module('comaDemo').run([
                 var result = null;
                 for (i = 0; i < results.length; i++) {
                     if (results[i].id === id) {
-                        result = results[i];
+                        if (!results[i].deleted) {
+                            result = results[i];
+                        }
                         break;
                     }
                 }
@@ -75,8 +77,16 @@ angular.module('comaDemo').run([
                 return [200, result];
             });
 
+            // Find All
             $httpBackend.whenGET(itemsEndpoint).respond(function (method, url) {
-                var results = resourceData.slice();
+                var theResults = resourceData.slice();
+                var results = [];
+
+                for (i = 0; i < theResults.length; i++) {
+                    if (!theResults[i].deleted) {
+                        results.push(theResults[i]);
+                    }
+                }
 
                 if (url.indexOf("$filter=") >= 0) {
                     var filterStart = url.substring(url.indexOf("$filter=") + 8);
@@ -107,6 +117,7 @@ angular.module('comaDemo').run([
                 return [200, response];
             });
 
+            //Create
             $httpBackend.whenPOST(itemsEndpoint).respond(function (method, url, data) {
                 data = angular.fromJson(data);
 
@@ -134,17 +145,19 @@ angular.module('comaDemo').run([
                 return [201, newObject];
             });
 
+            // Update
             $httpBackend.whenPUT(itemEndpoint).respond(function (method, url, data) {
                 data = angular.fromJson(data);
 
                 var results = resourceData;
                 var id = url.substring(url.lastIndexOf('/') + 1);
-                var property;
                 var matchedResult = null;
 
                 for (i = 0; i < results.length; i++) {
                     if (results[i].id === id) {
-                        matchedResult = results[i];
+                        if (!results[i].deleted) {
+                            matchedResult = results[i];
+                        }
                         break;
                     }
                 }
@@ -153,38 +166,38 @@ angular.module('comaDemo').run([
                     return [404];
                 }
 
-                for (property in data) {
-                    if (data.hasOwnProperty(property) && matchedResult.hasOwnProperty(property)) {
-                        matchedResult[property] = data[property];
-                    }
-                }
-
+                angular.extend(matchedResult, data);
                 matchedResult.lastModified = new Date();
 
                 return [200, matchedResult];
             });
 
+            // Remove
             $httpBackend.whenDELETE(itemEndpoint).respond(function (method, url) {
                 var results = resourceData;
                 var id = url.substring(url.lastIndexOf('/') + 1);
-                var matchedIndex = null;
+                var matchedResult = null;
 
                 for (i = 0; i < results.length; i++) {
                     if (results[i].id === id) {
-                        matchedIndex = i;
+                        if (!results[i].deleted) {
+                            matchedResult = results[i];
+                        }
                         break;
                     }
                 }
 
-                if (matchedIndex === -1) {
+                if (!matchedResult) {
                     return [404];
                 }
 
-                results.splice(matchedIndex, 1);
+                matchedResult.deleted = true;
+                matchedResult.lastModified = new Date();
 
                 return [200];
             });
 
+            // Synchronize
             $httpBackend.whenPUT(itemsEndpoint).respond(function (method, url, data) {
                 data = angular.fromJson(data);
 
@@ -203,7 +216,7 @@ angular.module('comaDemo').run([
                         }
                     }
                     if (matchedData) {
-                        if (moment(results[i].lastModified).isAfter(moment(matchedData.lastModified))) {
+                        if (new Date(results[i].lastModified) > new Date(matchedData.lastModified)) {
                             // Conflict... the server has a newer version
                             toUpdateOnClient.push(results[i]);
                         } else {
@@ -211,7 +224,7 @@ angular.module('comaDemo').run([
                             angular.extend(results[i], matchedData);
                             totalUpdates++;
                         }
-                    } else if (moment(results[i].lastModified).isAfter(moment(data.lastSync))) {
+                    } else if (new Date(results[i].lastModified) > new Date(data.lastSync)) {
                         // The server result was updated since the last client sync
                         toUpdateOnClient.push(results[i]);
                     }

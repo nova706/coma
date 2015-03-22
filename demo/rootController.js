@@ -37,23 +37,34 @@ angular.module('comaDemo').controller('RootCtrl', [
         var queryPeople = function () {
             var queryOptions = new PreparedQueryOptions().$orderBy('lastModified desc');
             var i;
+            var personFound = false;
             Person.find(queryOptions).then(function (response) {
                 $scope.localPeople = response.results;
                 if ($scope.localPerson) {
+                    personFound = false;
                     for (i = 0; i < $scope.localPeople.length; i++) {
                         if ($scope.localPeople[i].id === $scope.localPerson.id) {
                             $scope.localPerson = $scope.localPeople[i];
+                            personFound = true;
                         }
+                    }
+                    if (!personFound) {
+                        $scope.localPerson = null;
                     }
                 }
             });
             Person.find(queryOptions, true).then(function (response) {
                 $scope.remotePeople = response.results;
                 if ($scope.remotePerson) {
+                    personFound = false;
                     for (i = 0; i < $scope.remotePeople.length; i++) {
                         if ($scope.remotePeople[i].id === $scope.remotePerson.id) {
                             $scope.remotePerson = $scope.remotePeople[i];
+                            personFound = true;
                         }
+                    }
+                    if (!personFound) {
+                        $scope.localPerson = null;
                     }
                 }
             });
@@ -73,7 +84,8 @@ angular.module('comaDemo').controller('RootCtrl', [
             });
         };
 
-        $scope.removePerson = function (person, $index, remote) {
+        $scope.removePerson = function (person, $index, $event, remote) {
+            $event.stopPropagation();
             person.$remove().then(function () {
                 if (remote) {
                     $scope.remotePeople.splice($index, 1);

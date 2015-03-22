@@ -16,17 +16,11 @@ angular.module('coma').factory('comaSyncHandler', [
         };
 
         syncHandler.getLastSyncTime = function (Model) {
-            var lastSync = comaLocalStorage.get(comaLocalStorage.keys.LAST_SYNC, Model.modelName);
-            if (lastSync) {
-                return new Date(parseInt(lastSync, 10));
-            }
-
-            // This client has no sync record for this Model.
-            return null;
+            return comaLocalStorage.get(comaLocalStorage.keys.LAST_SYNC, Model.modelName);
         };
 
         syncHandler.updateLastSyncTimeToNow = function (Model) {
-            comaLocalStorage.set(comaLocalStorage.keys.LAST_SYNC, new Date().getTime(), Model.modelName);
+            comaLocalStorage.set(comaLocalStorage.keys.LAST_SYNC, new Date().toISOString(), Model.modelName);
         };
 
         syncHandler.validateModel = function (Model) {
@@ -72,6 +66,13 @@ angular.module('coma').factory('comaSyncHandler', [
                 dfd.reject(result);
             };
 
+            var handleComplete = function () {
+                result = new SyncResult(data, syncResponseData, totalItemsProcessed, 'Complete');
+                $log.debug('Sync Handler: ' + Model.modelName, 'Sync Complete', result);
+                syncHandler.updateLastSyncTimeToNow(Model);
+                dfd.resolve(result);
+            };
+
             $log.debug('Sync Handler: Sending ' + data.length + ' local item(s) to sync');
 
             syncHandler.sendSyncRequestData(Model, data).then(function (syncResponse) {
@@ -80,13 +81,13 @@ angular.module('coma').factory('comaSyncHandler', [
                 $log.debug('Sync Handler: Found ' + syncResponse.data.length + ' remote item(s) to sync');
                 totalItemsProcessed += syncResponse.data.length;
                 syncResponseData = syncResponse.data;
-                syncHandler.processSyncResponseData(Model, syncResponse.data).then(function () {
-                    result = new SyncResult(data, syncResponseData, totalItemsProcessed, 'Complete');
-                    $log.debug('Sync Handler: ' + Model.modelName, 'Sync Complete', result);
-                    syncHandler.updateLastSyncTimeToNow(Model);
-                    dfd.resolve(result);
-                }, handleError);
 
+                if (syncResponse.data.length > 0) {
+                    syncHandler.processSyncResponseData(Model, syncResponse.data).then(handleComplete, handleError);
+                } else {
+                    // No data from server to sync
+                    handleComplete();
+                }
             }, handleError);
 
             return dfd.promise;
@@ -112,7 +113,7 @@ angular.module('coma').factory('comaSyncHandler', [
                 queryOptions.$filter(predicate);
             }
 
-            Model.localAdapter.find(Model, queryOptions).then(function (response) {
+            Model.localAdapter.find(Model, queryOptions, true).then(function (response) {
                 return syncHandler.processSyncRequest(Model, response.data);
             }, function (e) {
                 result = new SyncResult([], [], 0, e);

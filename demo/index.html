@@ -61,7 +61,7 @@
                     style="cursor: pointer">
                     <td>{{ person.$entity.storedState.firstName }} {{ person.$entity.storedState.lastName }}</td>
                     <td>{{ person.lastModified | date:'short' }}</td>
-                    <td style="width: 1px"><a class="btn btn-danger btn-sm" data-ng-click="removePerson(person, $index)">Remove</a></td>
+                    <td style="width: 1px"><a class="btn btn-danger btn-sm" data-ng-click="removePerson(person, $index, $event)">Remove</a></td>
                 </tr>
             </table>
 
@@ -109,7 +109,7 @@
                     style="cursor: pointer">
                     <td>{{ person.$entity.storedState.firstName }} {{ person.$entity.storedState.lastName }}</td>
                     <td>{{ person.lastModified | date:'short' }}</td>
-                    <td style="width: 1px"><a class="btn btn-danger btn-sm" data-ng-click="removePerson(person, $index, true)">Remove</a></td>
+                    <td style="width: 1px"><a class="btn btn-danger btn-sm" data-ng-click="removePerson(person, $index, $event, true)">Remove</a></td>
                 </tr>
             </table>
 
@@ -151,6 +151,7 @@
 <script type="text/javascript" src="../src/coma.hasOneAssociation.js"></script>
 <script type="text/javascript" src="../src/coma.localStorage.js"></script>
 <script type="text/javascript" src="../src/coma.modelField.js"></script>
+<script type="text/javascript" src="../src/coma.polyfill.js"></script>
 <script type="text/javascript" src="../src/coma.predicate.js"></script>
 <script type="text/javascript" src="../src/coma.preparedQueryOptions.js"></script>
 <script type="text/javascript" src="../src/coma.provider.js"></script>

@@ -17,9 +17,6 @@ angular.module('comaDemo').factory('PhoneNumber', [
                 },
                 lastModified: {
                     type: "Date",
-                    getDefaultValue: function () {
-                        return new Date();
-                    },
                     index: true
                 }
             },
@@ -29,7 +26,11 @@ angular.module('comaDemo').factory('PhoneNumber', [
                     as: 'person',
                     foreignKey: 'personId'
                 }
-            ]
+            ],
+            transformResult: function (entity) {
+                entity.lastModified = moment(entity.lastModified).toDate();
+                return entity;
+            }
         });
     }
 ]);

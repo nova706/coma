@@ -18,9 +18,6 @@ angular.module('comaDemo').factory('Person', [
                 lastName: "String",
                 lastModified: {
                     type: "Date",
-                    getDefaultValue: function () {
-                        return new Date();
-                    },
                     index: true
                 }
             },
@@ -31,10 +28,6 @@ angular.module('comaDemo').factory('Person', [
                     mappedBy: 'personId'
                 }
             ],
-            preSave: function (entity) {
-                entity.lastModified = moment().toISOString();
-                return entity;
-            },
             transformResult: function (entity) {
                 entity.lastModified = moment(entity.lastModified).toDate();
                 return entity;

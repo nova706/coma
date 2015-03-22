@@ -21,7 +21,8 @@ angular.module('coma').factory("comaBaseModelService", [
 
         var baseModelService = {
             dirtyCheckThreshold: 30,
-            lastModifiedField: null,
+            lastModifiedFieldName: "",
+            deletedFieldName: "",
             localAdapter: {},
             remoteAdapter: {},
             models: {}
@@ -63,10 +64,18 @@ angular.module('coma').factory("comaBaseModelService", [
 
         /**
          * Sets the field to be used as the last modified field required for synchronization.
-         * @param {String} lastModifiedField
+         * @param {String} lastModifiedFieldName
          */
-        baseModelService.setLastModifiedField = function (lastModifiedField) {
-            baseModelService.lastModifiedField = lastModifiedField;
+        baseModelService.setLastModifiedFieldName = function (lastModifiedFieldName) {
+            baseModelService.lastModifiedFieldName = lastModifiedFieldName;
+        };
+
+        /**
+         * Sets the field to be used as the deleted field required for synchronization.
+         * @param {String} deletedFieldName
+         */
+        baseModelService.setDeletedFieldName = function (deletedFieldName) {
+            baseModelService.deletedFieldName = deletedFieldName;
         };
 
         /**
@@ -173,6 +182,7 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.fields = {};
             Entity.associations = [];
             Entity.primaryKeyFieldName = null;
+            Entity.lastModifiedFieldName = baseModelService.lastModifiedFieldName;
             Entity.localAdapter = localAdapter;
             Entity.remoteAdapter = remoteAdapter;
             Entity.modelName = modelDefinition.name;
@@ -182,6 +192,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 var field;
                 var modelField;
                 var lastModifiedField;
+                var deletedField;
                 for (field in modelDefinition.fields) {
                     if (modelDefinition.fields.hasOwnProperty(field)) {
                         modelField = new ModelField(field, modelDefinition.fields[field]);
@@ -194,8 +205,12 @@ angular.module('coma').factory("comaBaseModelService", [
                             Entity.fields[field] = modelField;
                         }
 
-                        if (field === baseModelService.lastModifiedField) {
+                        if (field === baseModelService.lastModifiedFieldName) {
                             lastModifiedField = modelField;
+                        }
+
+                        if (field === baseModelService.deletedFieldName) {
+                            deletedField = field;
                         }
                     }
                 }
@@ -203,12 +218,15 @@ angular.module('coma').factory("comaBaseModelService", [
                     $log.error('BaseModelService: The last modified field is not a Date field');
                     return false;
                 }
-                if (baseModelService.lastModifiedField && !lastModifiedField) {
-                    Entity.fields[baseModelService.lastModifiedField] = new ModelField(baseModelService.lastModifiedField, {
+                if (baseModelService.lastModifiedFieldName && !lastModifiedField) {
+                    Entity.fields[baseModelService.lastModifiedFieldName] = new ModelField(baseModelService.lastModifiedFieldName, {
                         type: "Date",
-                        getDefaultValue: function () {
-                            return new Date();
-                        },
+                        index: true
+                    });
+                }
+                if (baseModelService.deletedFieldName && !deletedField) {
+                    Entity.fields[baseModelService.deletedFieldName] = new ModelField(baseModelService.deletedFieldName, {
+                        type: "Boolean",
                         index: true
                     });
                 }
@@ -335,7 +353,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 for (field in Entity.fields) {
                     if (Entity.fields.hasOwnProperty(field)) {
                         if (typeof Entity.fields[field].getDefaultValue === 'function' && entity[field] === undefined) {
-                            entity[field] = Entity.fields[field].getDefaultValue();
+                            entity[field] = Entity.fields[field].getDefaultValue(entity);
                         }
                     }
                 }
@@ -660,11 +678,13 @@ angular.module('coma').factory("comaBaseModelService", [
              * Removes the model from the adapter.
              *
              * @method $remove
+             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
              * @returns {promise}
              */
-            Entity.prototype.$remove = function () {
+            Entity.prototype.$remove = function (remote) {
                 if (this[Entity.primaryKeyFieldName]) {
-                    return Entity.remove(this[Entity.primaryKeyFieldName]);
+                    var adapter = (remote === true && remoteAdapter) ? remoteAdapter : this.$entity.adapter;
+                    return adapter.remove(new ComaModel(Entity), this[Entity.primaryKeyFieldName]);
                 }
                 $log.error('BaseModelService: $remove', 'The primary key was not found');
                 return $q.reject("The primary key was not found.");

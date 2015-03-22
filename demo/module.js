@@ -9,9 +9,13 @@ angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB', 'coma.adapter.oDat
     function (comaProvider, comaIndexedDBAdapterProvider, comaODataRESTAdapterProvider) {
         comaProvider.setLocalAdapter('comaIndexedDBAdapter');
         comaProvider.setRemoteAdapter('comaODataRESTAdapter');
-        comaProvider.setLastModifiedField('lastModified');
+        comaProvider.setLastModifiedFieldName('lastModified');
+        comaProvider.setDeletedFieldName('deleted');
+
         comaIndexedDBAdapterProvider.setDbName("comaDemo");
         comaIndexedDBAdapterProvider.setDbVersion(1);
+        comaIndexedDBAdapterProvider.dropDatabase();
+
         comaODataRESTAdapterProvider.setServerAPILocation('/api/');
     }
 ]);

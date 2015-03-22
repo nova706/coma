@@ -20,9 +20,15 @@ angular.module('coma').provider('coma', [
             return this;
         };
 
-        config.lastModifiedField = null;
-        this.setLastModifiedField = function (lastModifiedField) {
-            config.lastModifiedField = lastModifiedField;
+        config.lastModifiedFieldName = null;
+        this.setLastModifiedFieldName = function (lastModifiedFieldName) {
+            config.lastModifiedFieldName = lastModifiedFieldName;
+            return this;
+        };
+
+        config.deletedFieldName = null;
+        this.setDeletedFieldName = function (deletedFieldName) {
+            config.deletedFieldName = deletedFieldName;
             return this;
         };
 
@@ -33,7 +39,8 @@ angular.module('coma').provider('coma', [
 
             // To Avoid circular dependency, add the config to the baseModelService
             comaBaseModelService.setDirtyCheckThreshold(config.dirtyCheckThreshold);
-            comaBaseModelService.setLastModifiedField(config.lastModifiedField);
+            comaBaseModelService.setLastModifiedFieldName(config.lastModifiedFieldName);
+            comaBaseModelService.setDeletedFieldName(config.deletedFieldName);
             if (config.localAdapter) {
                 comaBaseModelService.setLocalAdapter(config.localAdapter);
             }

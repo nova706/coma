@@ -12,6 +12,8 @@ describe("IndexedDBAdapter", function () {
 
     var model = {
         dataSourceName: "testEndpoint",
+        lastModifiedFieldName: "lastModified",
+        deletedFieldName: "deleted",
         getRawModelObject: function (object) {
             return angular.copy(object);
         }
@@ -35,17 +37,17 @@ describe("IndexedDBAdapter", function () {
     }));
 
     it("Should provide the basic CRUD methods", function () {
-        should.equal(true, isFunc(adapter.create));
-        should.equal(true, isFunc(adapter.findOne));
-        should.equal(true, isFunc(adapter.find));
-        should.equal(true, isFunc(adapter.update));
-        should.equal(true, isFunc(adapter.remove));
+        should.equal(isFunc(adapter.create), true);
+        should.equal(isFunc(adapter.findOne), true);
+        should.equal(isFunc(adapter.find), true);
+        should.equal(isFunc(adapter.update), true);
+        should.equal(isFunc(adapter.remove), true);
     });
 
     describe("Create", function () {
         it("Should return a promise", function () {
             var promise = adapter.create(model, {name: "John"});
-            should.equal(true, isFunc(promise.then));
+            should.equal(isFunc(promise.then), true);
         });
 
         it("Should resolve a proper response", function () {
@@ -96,7 +98,7 @@ describe("IndexedDBAdapter", function () {
     describe("FindOne", function () {
         it("Should return a promise", function () {
             var promise = adapter.findOne(model, 1);
-            should.equal(true, isFunc(promise.then));
+            should.equal(isFunc(promise.then), true);
         });
 
         it("Should resolve a proper response", function () {
@@ -148,7 +150,7 @@ describe("IndexedDBAdapter", function () {
     describe("Find", function () {
         it("Should return a promise", function () {
             var promise = adapter.find(model);
-            should.equal(true, isFunc(promise.then));
+            should.equal(isFunc(promise.then), true);
         });
 
         it("Should resolve a proper response", function () {
@@ -200,7 +202,7 @@ describe("IndexedDBAdapter", function () {
     describe("Update", function () {
         it("Should return a promise", function () {
             var promise = adapter.update(model, 1, {name: "John"});
-            should.equal(true, isFunc(promise.then));
+            should.equal(isFunc(promise.then), true);
         });
 
         it("Should resolve a proper response", function () {
@@ -252,19 +254,22 @@ describe("IndexedDBAdapter", function () {
     describe("Remove", function () {
         it("Should return a promise", function () {
             var promise = adapter.remove(model, 1);
-            should.equal(true, isFunc(promise.then));
+            should.equal(isFunc(promise.then), true);
         });
 
         it("Should resolve a proper response", function () {
             var response = {};
+            mockIndexedDB.setTransactionResult({id: 1, name: "John"});
 
             adapter.remove(model, 1).then(function (res) {
                 response = res;
+            }, function (e) {
+                throw e.data;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            should.equal(null, response.data);
+            should.equal(response.data, null);
             response.count.should.equal(1);
             response.status.should.equal(204);
         });
