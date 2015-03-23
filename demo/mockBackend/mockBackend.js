@@ -311,7 +311,9 @@ angular.module('comaDemo').run([
             }
             if (value.indexOf('{{') === 0 && value.substring(value.length - 2) === '}}') {
                 value = value.replace('{{', '').replace('}}', '');
+                /* jshint evil: true */
                 return eval(value);
+                /* jshint evil: false */
             }
             return value;
         };

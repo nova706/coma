@@ -513,7 +513,6 @@ angular.module('coma').factory('comaPredicate', [
                     value = Date.parse(value);
                 }
 
-                /*jslint eqeq: true*/
                 switch (operator) {
                 case 'lt':
                     return resultValue < value;
@@ -524,11 +523,12 @@ angular.module('coma').factory('comaPredicate', [
                 case 'ge':
                     return resultValue >= value;
                 case 'ne':
+                    /* jshint eqeqeq: false */
                     return resultValue != value;
                 case 'eq':
                     return resultValue == value;
+                    /* jshint eqeqeq: true */
                 }
-                /*jslint eqeq: false*/
             }
 
             return false;

@@ -1,0 +1,13 @@
+{
+    "bitwise": true,
+    "curly": true,
+    "eqeqeq": true,
+    "forin": true,
+    "latedef": true,
+    "noarg": true,
+    "nonew": true,
+    "undef": true,
+    "browser": true,
+    "devel": true,
+    "predef": [ "angular" ]
+}
