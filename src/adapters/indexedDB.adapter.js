@@ -174,8 +174,8 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                         if (association && model) {
                             var store = tx.objectStore(model.dataSourceName);
                             var req;
-                            if (association.type === 'hasOne' && result[association.foreignKey] !== undefined) {
-                                req = store.get(result[association.foreignKey]);
+                            if (association.type === 'hasOne' && result[association.mappedBy] !== undefined) {
+                                req = store.get(result[association.mappedBy]);
 
                                 req.onsuccess = function () {
                                     result[association.alias] = req.result;

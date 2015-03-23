@@ -211,7 +211,7 @@ describe("BaseModelService", function () {
             personAssociation.type.should.equal('hasOne');
             personAssociation.modelName.should.equal(personModel.modelName);
             personAssociation.alias.should.equal('person');
-            personAssociation.foreignKey.should.equal('personId');
+            personAssociation.mappedBy.should.equal('personId');
         });
     });
 });

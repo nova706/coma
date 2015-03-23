@@ -2,8 +2,7 @@ angular.module('coma').factory("comaBaseModelService", [
     '$injector',
     '$log',
     '$q',
-    'comaHasManyAssociation',
-    'comaHasOneAssociation',
+    'comaAssociation',
     'comaModelField',
     'comaPreparedQueryOptions',
     'comaPredicate',
@@ -12,8 +11,7 @@ angular.module('coma').factory("comaBaseModelService", [
     function ($injector,
               $log,
               $q,
-              HasManyAssociation,
-              HasOneAssociation,
+              Association,
               ModelField,
               PreparedQueryOptions,
               Predicate,
@@ -47,10 +45,7 @@ angular.module('coma').factory("comaBaseModelService", [
         var RawModelInstance = function () { return this; };
 
         // Initialize the getModel functions on the associations
-        HasManyAssociation.getAssociationModel = function (modelName) {
-            return baseModelService.getModel(modelName);
-        };
-        HasOneAssociation.getAssociationModel = function (modelName) {
+        Association.getAssociationModel = function (modelName) {
             return baseModelService.getModel(modelName);
         };
 
@@ -247,22 +242,18 @@ angular.module('coma').factory("comaBaseModelService", [
                 var i;
                 var association;
                 for (i = 0; i < modelDefinition.associations.length; i++) {
-                    if (typeof modelDefinition.associations[i].hasOne === 'string') {
-                        association = new HasOneAssociation(modelDefinition.associations[i]);
-                    } else if (typeof modelDefinition.associations[i].hasMany === 'string') {
-                        association = new HasManyAssociation(modelDefinition.associations[i]);
-                    }
+                    association = new Association(modelDefinition.associations[i]);
 
                     if (association && !association.invalid) {
                         if (association.type === 'hasOne') {
-                            if (!Entity.fields[association.foreignKey]) {
+                            if (!Entity.fields[association.mappedBy]) {
                                 // If no field is defined for the foreign key, define one assuming the same foreign key type.
-                                Entity.fields[association.foreignKey] = new ModelField(association.foreignKey, {
+                                Entity.fields[association.mappedBy] = new ModelField(association.mappedBy, {
                                     type: Entity.fields[Entity.primaryKeyFieldName].type,
-                                    index: association.foreignKey
+                                    index: association.mappedBy
                                 });
                             } else {
-                                Entity.fields[association.foreignKey].index = association.foreignKey;
+                                Entity.fields[association.mappedBy].index = association.mappedBy;
                             }
                         }
 
@@ -302,7 +293,7 @@ angular.module('coma').factory("comaBaseModelService", [
             /**
              * Gets a raw representation of the model object to be used in adapter transactions. This returns an object
              * in which only the Model defined fields are set. This also looks through expanded associations to set the
-             * foreignKey field for on one to n associations and sets the association to the raw association object.
+             * foreignKey field for one to n associations and sets the association to the raw association object.
              *
              * @param {Object} modelEntity
              * @param {Boolean} [includeExpandedAssociations = true] Include the expanded association in the raw object.
@@ -328,11 +319,11 @@ angular.module('coma').factory("comaBaseModelService", [
                     if (Entity.associations[i].type === 'hasOne') {
                         if (modelEntity[alias] !== undefined && includeExpandedAssociations !== false) {
                             foreignKey = modelEntity[alias][ForeignModel.primaryKeyFieldName];
-                            object[Entity.associations[i].foreignKey] = foreignKey;
+                            object[Entity.associations[i].mappedBy] = foreignKey;
                             object[alias] = ForeignModel.getRawModelObject(modelEntity[alias]);
                         }
-                        if (modelEntity[Entity.associations[i].foreignKey]) {
-                            object[Entity.associations[i].foreignKey] = modelEntity[Entity.associations[i].foreignKey];
+                        if (modelEntity[Entity.associations[i].mappedBy]) {
+                            object[Entity.associations[i].mappedBy] = modelEntity[Entity.associations[i].mappedBy];
                         }
                     } else if (Entity.associations[i].type === 'hasMany' && includeExpandedAssociations !== false) {
                         if (modelEntity[alias] !== undefined && modelEntity[alias] instanceof Array) {
@@ -524,8 +515,8 @@ angular.module('coma').factory("comaBaseModelService", [
                 var association = Entity.getAssociationByAlias(associationName);
                 if (association) {
                     var Model = association.getModel();
-                    if (Model && association.type === 'hasOne' && self[association.foreignKey] !== undefined) {
-                        self.$entity.adapter.findOne(new ComaModel(Model), self[association.foreignKey]).then(function (response) {
+                    if (Model && association.type === 'hasOne' && self[association.mappedBy] !== undefined) {
+                        self.$entity.adapter.findOne(new ComaModel(Model), self[association.mappedBy]).then(function (response) {
                             self[association.alias] = Model.getRawModelObject(response.data);
                             self.$entity.storedState[association.alias] = Model.getRawModelObject(response.data);
                             $log.debug("BaseModelService: $expand", association.type, associationName, self, response);
