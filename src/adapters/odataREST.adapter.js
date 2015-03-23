@@ -3,6 +3,7 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
 
         var providerConfig = {};
 
+        // Sets the location of the server api endpoint
         providerConfig.serverAPILocation = "/api/";
         this.setServerAPILocation = function (serverAPILocation) {
             if (serverAPILocation.substring(serverAPILocation.length - 1) !== "/") {
@@ -12,12 +13,14 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
             return this;
         };
 
+        // Sets the name of the results property in the server's response
         providerConfig.resultsField = "results";
         this.setResultsField = function (resultsField) {
             providerConfig.resultsField = resultsField;
             return this;
         };
 
+        // Sets the name of the total count property in the server's response
         providerConfig.totalCountFiled = "totalCount";
         this.setTotalCountFiled = function (totalCountFiled) {
             providerConfig.totalCountFiled = totalCountFiled;
@@ -37,11 +40,18 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
 
                 var adapter = {};
 
+                // Appends the query options to the URL
                 var addOptionsToUrl = function (url, queryOptions) {
                     url += queryOptions ? queryOptions.parseOptions() : "";
                     return url;
                 };
 
+                /**
+                 * Creates a new Entity
+                 * @param {Object} theModel The model of the entity to create
+                 * @param {Object} modelInstance The entity to create
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.create = function (theModel, modelInstance) {
                     var dfd = $q.defer();
                     var response;
@@ -63,6 +73,13 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Finds a single entity given a primary key
+                 * @param {Object} theModel The model of the entity to find
+                 * @param {String|Number} pk The primary key of the entity to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.findOne = function (theModel, pk, queryOptions) {
                     var dfd = $q.defer();
                     var response;
@@ -90,6 +107,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Finds a set of Model entities
+                 * @param {Object} theModel The model of the entities to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.find = function (theModel, queryOptions) {
                     var dfd = $q.defer();
                     var response;
@@ -123,6 +146,13 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Updates a Model entity given the primary key of the entity
+                 * @param {Object} theModel The model of the entity to update
+                 * @param {String|Number} pk The primary key of the entity
+                 * @param {Object} modelInstance The entity to update
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.update = function (theModel, pk, modelInstance) {
                     var dfd = $q.defer();
                     var response;
@@ -150,6 +180,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Removes an Entity given the primary key of the entity to remove
+                 * @param {Object} theModel The model of the entity to remove
+                 * @param {String|Number} pk The primary key of the entity
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.remove = function (theModel, pk) {
                     var dfd = $q.defer();
                     var response;
@@ -177,6 +213,12 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Takes an Array of entities and creates/updates/deletes them
+                 * @param {Object} theModel The model of the entities to synchronize
+                 * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.synchronize = function (theModel, dataToSync, lastSync) {
                     var dfd = $q.defer();
                     var response;

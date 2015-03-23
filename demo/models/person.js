@@ -1,3 +1,6 @@
+/**
+ * The Person model is used to demo local <-> remote sync.
+ */
 angular.module('comaDemo').factory('Person', [
     'coma',
 

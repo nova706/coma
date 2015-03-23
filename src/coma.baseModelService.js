@@ -56,10 +56,10 @@ angular.module('coma').factory("comaBaseModelService", [
 
         /**
          * Set the dirty check threshold used by the entity dirty checking
-         * @param {Number} dirtyCheckThreshold in Milliseconds
+         * @param {Number} [dirtyCheckThreshold=30] in Milliseconds
          */
         baseModelService.setDirtyCheckThreshold = function (dirtyCheckThreshold) {
-            baseModelService.dirtyCheckThreshold = dirtyCheckThreshold;
+            baseModelService.dirtyCheckThreshold = dirtyCheckThreshold || 30;
         };
 
         /**
@@ -189,6 +189,7 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.modelName = modelDefinition.name;
             Entity.dataSourceName = modelDefinition.dataSourceName || modelDefinition.name;
 
+            // Initializes the fields using the common ModelField class
             var initializeEntityFields = function () {
                 var field;
                 var modelField;
@@ -238,6 +239,7 @@ angular.module('coma').factory("comaBaseModelService", [
             }
 
             // TODO: Support many to many associations
+            // Initialize the Model associations using the HasOneAssociation and HasManyAssociation classes
             var initializeAssociations = function () {
                 if (!modelDefinition.associations) {
                     return;
@@ -496,6 +498,7 @@ angular.module('coma').factory("comaBaseModelService", [
 
             /**
              * Synchronizes all modified entities between a local and remote adapter.
+             * @returns {promise}
              */
             Entity.synchronize = function () {
                 return comaSyncHandler.model(Entity);
@@ -503,6 +506,7 @@ angular.module('coma').factory("comaBaseModelService", [
 
             /**
              * Synchronizes a single entity between a local and remote adapter.
+             * @returns {promise}
              */
             Entity.prototype.$sync = function () {
                 return comaSyncHandler.entity(Entity, this);
@@ -562,6 +566,7 @@ angular.module('coma').factory("comaBaseModelService", [
 
             /**
              * Validates an entity against the model's field definition.
+             * @returns {Boolean} True if the model validation succeeds
              */
             Entity.prototype.$isValid = function () {
                 // TODO: This does not validate associations

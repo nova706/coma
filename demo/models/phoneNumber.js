@@ -1,3 +1,6 @@
+/**
+ * The PhoneNumber model is used to demo association handling in entities.
+ */
 angular.module('comaDemo').factory('PhoneNumber', [
     'coma',
 

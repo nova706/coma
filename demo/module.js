@@ -1,5 +1,5 @@
 /**
- * Define the Angular Module and any required dependencies
+ * Define the Angular Module and configure Coma
  */
 angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB', 'coma.adapter.oDataREST']).config([
     'comaProvider',
@@ -7,29 +7,21 @@ angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB', 'coma.adapter.oDat
     'comaODataRESTAdapterProvider',
 
     function (comaProvider, comaIndexedDBAdapterProvider, comaODataRESTAdapterProvider) {
+
+        // Specify both local and remote adapters to enable synchronization
         comaProvider.setLocalAdapter('comaIndexedDBAdapter');
         comaProvider.setRemoteAdapter('comaODataRESTAdapter');
+
+         // Set last modified and deleted fields to enable synchronization
         comaProvider.setLastModifiedFieldName('lastModified');
         comaProvider.setDeletedFieldName('deleted');
 
+        // Setup the IndexedDB Adapter and initialize it
         comaIndexedDBAdapterProvider.setDbName("comaDemo");
         comaIndexedDBAdapterProvider.setDbVersion(1);
         comaIndexedDBAdapterProvider.dropDatabase();
 
+        // Setup the OData REST Adapter
         comaODataRESTAdapterProvider.setServerAPILocation('/api/');
-    }
-]);
-
-/**
- * Functions to perform when the app is run (after configuration).
- *  - Set the app version
- */
-angular.module('comaDemo').run([
-    '$rootScope',
-
-    function ($rootScope) {
-        console.log('App Started');
-
-        $rootScope.version = '0.0.1';
     }
 ]);

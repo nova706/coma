@@ -1,3 +1,4 @@
+// Mock IndexedDB instance used to test the IndexedDBAdapter
 window.MockIndexedDB = function ($timeout) {
     var rejectConnection = false;
     var rejectTransaction = false;

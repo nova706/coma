@@ -1,6 +1,5 @@
 /**
- * Root Controller.
- * Binds to the root view to provide common functionality to all states inheriting from the root state.
+ * Demo Controller to show usage of Coma functionality
  */
 angular.module('comaDemo').controller('RootCtrl', [
     '$scope',
@@ -38,6 +37,8 @@ angular.module('comaDemo').controller('RootCtrl', [
             var queryOptions = new PreparedQueryOptions().$orderBy('lastModified desc');
             var i;
             var personFound = false;
+
+            // Find all people from the local adapter
             Person.find(queryOptions).then(function (response) {
                 $scope.localPeople = response.results;
                 if ($scope.localPerson) {
@@ -53,6 +54,8 @@ angular.module('comaDemo').controller('RootCtrl', [
                     }
                 }
             });
+
+            // Find all people from the remote adapter
             Person.find(queryOptions, true).then(function (response) {
                 $scope.remotePeople = response.results;
                 if ($scope.remotePerson) {
@@ -70,6 +73,7 @@ angular.module('comaDemo').controller('RootCtrl', [
             });
         };
 
+        // Creates a new Person entity and saves it to the adapter
         $scope.createPerson = function (remote) {
             var person = new Person({
                 firstName: 'John',
@@ -84,6 +88,7 @@ angular.module('comaDemo').controller('RootCtrl', [
             });
         };
 
+        // Removes a person entity from the adapter
         $scope.removePerson = function (person, $index, $event, remote) {
             $event.stopPropagation();
             person.$remove().then(function () {
@@ -101,6 +106,7 @@ angular.module('comaDemo').controller('RootCtrl', [
             });
         };
 
+        // Synchronizes people
         $scope.syncPeople = function () {
             Person.synchronize().then(function () {
                 queryPeople();

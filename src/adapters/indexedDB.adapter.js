@@ -3,18 +3,21 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
 
         var providerConfig = {};
 
+        // Sets the name of the IndexedDB database to use
         providerConfig.dbName = 'coma';
         this.setDbName = function (dbName) {
             providerConfig.dbName = dbName;
             return this;
         };
 
+        // Sets the version of the IndexedDB to use
         providerConfig.dbVersion = 1;
         this.setDbVersion = function (dbVersion) {
             providerConfig.dbVersion = dbVersion;
             return this;
         };
 
+        // Sets the default function to be used as a "GUID" generator
         providerConfig.pkGenerator = function () {
             function s4() {
                 return Math.floor((1 + Math.random()) * 0x10000)
@@ -30,6 +33,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
             return this;
         };
 
+        // Drops the IndexedDB database
         this.dropDatabase = function () {
             try {
                 window.indexedDB.deleteDatabase(providerConfig.dbName);
@@ -53,6 +57,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
 
                 var generatePrimaryKey = providerConfig.pkGenerator;
 
+                // Handles version differences in the database and initializes or migrates the db
                 var migrate = function (db) {
                     var i;
                     var model;
@@ -77,12 +82,11 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     }
                 };
 
+                // Sets the database to use in the adapter
                 var useDatabase = function (theDb) {
                     db = theDb;
 
-                    // Make sure to add a handler to be notified if another page requests a version
-                    // change. We must close the database. This allows the other page to upgrade the database.
-                    // If you don't do this then the upgrade won't happen until the user closes the tab.
+                    // Handler for when the DB version is changed in another tab
                     db.onversionchange = function () {
                         db.close();
                         $log.error('IndexedDBAdapter: DB version changed in a different window');
@@ -90,6 +94,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     };
                 };
 
+                // Connects to the database
                 var connect = function () {
                     var dfd = $q.defer();
 
@@ -119,6 +124,8 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                // Given an expand path, finds all the DB tables required for the transaction
+                // Recursive
                 var getTablesFromExpandPath = function (theModel, expandPath) {
                     var tables = [];
                     var pathsToExpand = expandPath.split('.');
@@ -136,6 +143,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return tables;
                 };
 
+                // Given queryOptions, finds all the DB tables required for the transaction
                 var getTablesFromQueryOptions = function (theModel, queryOptions) {
                     var tables = [];
                     var $expand;
@@ -153,6 +161,8 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return tables;
                 };
 
+                // Expands a Model association given an expand path
+                // Recursive
                 var expandPath = function (result, theModel, pathToExpand, tx) {
                     var dfd = $q.defer();
                     var pathsToExpand = pathToExpand.split('.');
@@ -225,6 +235,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                // Expands all Model associations defined in the query options $expand clause
                 var performExpand = function (result, theModel, queryOptions, tx) {
                     var dfd = $q.defer();
                     var $expand;
@@ -252,10 +263,12 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                // Checks if a result matches a predicate filter
                 var resultMatchesFilters = function (result, predicate) {
                     return predicate.test(result);
                 };
 
+                // Applies a filter predicate to a set of results and returns an array of the matching results
                 var applyFilter = function (results, filterPredicate) {
                     if (filterPredicate && results) {
                         results.filter(function (a) {
@@ -265,6 +278,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return results;
                 };
 
+                // Sorts the data given an $orderBy clause in query options
                 var applyOrderBy = function (results, queryOptions) {
                     if (!queryOptions) {
                         return results;
@@ -286,6 +300,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return results;
                 };
 
+                // Applies paging to a set of results and returns a sliced array of results
                 var applyPaging = function (results, queryOptions) {
                     if (!queryOptions) {
                         return results;
@@ -298,6 +313,12 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return results;
                 };
 
+                /**
+                 * Creates a new Entity
+                 * @param {Object} theModel The model of the entity to create
+                 * @param {Object} modelInstance The entity to create
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.create = function (theModel, modelInstance) {
                     var dfd = $q.defer();
                     var response;
@@ -336,6 +357,14 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Finds a single entity given a primary key
+                 * @param {Object} theModel The model of the entity to find
+                 * @param {String|Number} pk The primary key of the entity to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
+                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.findOne = function (theModel, pk, queryOptions, includeDeleted) {
                     var dfd = $q.defer();
                     var response;
@@ -375,6 +404,13 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Finds a set of Model entities
+                 * @param {Object} theModel The model of the entities to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use
+                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.find = function (theModel, queryOptions, includeDeleted) {
                     var dfd = $q.defer();
                     var response;
@@ -446,6 +482,14 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Updates a Model entity given the primary key of the entity
+                 * @param {Object} theModel The model of the entity to update
+                 * @param {String|Number} pk The primary key of the entity
+                 * @param {Object} modelInstance The entity to update
+                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.update = function (theModel, pk, modelInstance, includeDeleted) {
                     var dfd = $q.defer();
                     var response;
@@ -498,6 +542,12 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                 };
 
                 // TODO: Cascade Delete
+                /**
+                 * Removes an Entity given the primary key of the entity to remove
+                 * @param {Object} theModel The model of the entity to remove
+                 * @param {String|Number} pk The primary key of the entity
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.remove = function (theModel, pk) {
                     var dfd = $q.defer();
                     var response;
@@ -540,6 +590,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                // Creates a new Entity if not found or updates the existing one. Used in synchronization.
                 var createOrUpdate = function (theModel, tx, modelInstance) {
                     var dfd = $q.defer();
 
@@ -575,6 +626,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                // Hard deletes an Entity. Used in synchronization.
                 var hardRemove = function (theModel, tx, pk) {
                     var dfd = $q.defer();
 
@@ -590,6 +642,12 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Takes an Array of entities and creates/updates/deletes them
+                 * @param {Object} theModel The model of the entities to synchronize
+                 * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
                 adapter.synchronize = function (theModel, dataToSync) {
                     var dfd = $q.defer();
                     var response;

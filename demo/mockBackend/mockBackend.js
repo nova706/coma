@@ -1,3 +1,8 @@
+/**
+ * mockBackend utilizes $httpBackend from Angular Mocks as an interceptor which provides an in memory backend that
+ * acts as a rest server in order to demoing local <-> remote synchronization.
+ */
+
 angular.module('comaDemo').config(['$provide', function ($provide) {
     $provide.decorator('$httpBackend', angular.mock.e2e.$httpBackendDecorator);
 }]);
