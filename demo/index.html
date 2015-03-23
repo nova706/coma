@@ -82,6 +82,7 @@
                     <div class="form-group">
                         <div class="col-sm-offset-2 col-sm-10">
                             <button data-ng-disabled="!localPerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="localPerson.$save()">Save</button>
+                            <button data-ng-disabled="!localPerson.$isDirty()" type="button" class="btn btn-default" data-ng-click="localPerson.$reset()">Cancel</button>
                         </div>
                     </div>
                 </form>
@@ -130,6 +131,7 @@
                     <div class="form-group">
                         <div class="col-sm-offset-2 col-sm-10">
                             <button data-ng-disabled="!remotePerson.$isDirty()" type="button" class="btn btn-success" data-ng-click="remotePerson.$save()">Save</button>
+                            <button data-ng-disabled="!remotePerson.$isDirty()" type="button" class="btn btn-default" data-ng-click="remotePerson.$reset()">Cancel</button>
                         </div>
                     </div>
                 </form>
