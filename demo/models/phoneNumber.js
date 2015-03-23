@@ -28,7 +28,7 @@ angular.module('comaDemo').factory('PhoneNumber', [
                 }
             ],
             transformResult: function (entity) {
-                entity.lastModified = moment(entity.lastModified).toDate();
+                entity.lastModified = new Date(entity.lastModified);
                 return entity;
             }
         });

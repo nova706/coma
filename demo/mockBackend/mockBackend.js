@@ -277,11 +277,15 @@ angular.module('comaDemo').run([
                     return (direction === "desc") ? -1 : 1;
                 }
 
-                if (moment(firstValue).isValid() && moment(nextValue).isValid()) {
-                    if (moment(firstValue).isBefore(nextValue)) {
-                        return (direction === "desc") ? 1 : -1;
-                    }
-                } else if (firstValue < nextValue) {
+                if (firstValue instanceof Date && !isNaN(Date.parse(nextValue))) {
+                    nextValue = Date.parse(nextValue);
+                    firstValue = firstValue.getTime();
+                } else if (typeof firstValue === 'string' && !isNaN(Date.parse(firstValue))) {
+                    firstValue = Date.parse(firstValue);
+                    nextValue = Date.parse(nextValue);
+                }
+
+                if (firstValue < nextValue) {
                     return (direction === "desc") ? 1 : -1;
                 }
 

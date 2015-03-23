@@ -29,7 +29,7 @@ angular.module('comaDemo').factory('Person', [
                 }
             ],
             transformResult: function (entity) {
-                entity.lastModified = moment(entity.lastModified).toDate();
+                entity.lastModified = new Date(entity.lastModified);
                 return entity;
             }
         });

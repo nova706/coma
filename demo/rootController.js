@@ -64,7 +64,7 @@ angular.module('comaDemo').controller('RootCtrl', [
                         }
                     }
                     if (!personFound) {
-                        $scope.localPerson = null;
+                        $scope.remotePerson = null;
                     }
                 }
             });
@@ -89,14 +89,14 @@ angular.module('comaDemo').controller('RootCtrl', [
             person.$remove().then(function () {
                 if (remote) {
                     $scope.remotePeople.splice($index, 1);
-                    if ($scope.remotePerson && $scope.remotePerson.id === person.id) {
-                        $scope.remotePerson = null;
-                    }
                 } else {
                     $scope.localPeople.splice($index, 1);
-                    if ($scope.localPerson && $scope.localPerson.id === person.id) {
-                        $scope.localPerson = null;
-                    }
+                }
+                if ($scope.remotePerson && $scope.remotePerson.id === person.id) {
+                    $scope.remotePerson = null;
+                }
+                if ($scope.localPerson && $scope.localPerson.id === person.id) {
+                    $scope.localPerson = null;
                 }
             });
         };

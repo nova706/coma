@@ -381,10 +381,13 @@ angular.module('coma').factory('comaPredicate', [
          * Takes a predicate's value and if it is a string, adds single quotes around it.
          *
          * @method escapeValue
-         * @param {String|Boolean|Number} value
+         * @param {String|Boolean|Number|Date} value
          * @returns {string} The string value
          */
         utils.escapeValue = function (value) {
+            if (value instanceof Date) {
+                value = value.toISOString();
+            }
             return (typeof value === 'string') ? "'" + value + "'" : value.toString();
         };
 
@@ -504,6 +507,7 @@ angular.module('coma').factory('comaPredicate', [
                 var resultValue = objectValue;
                 if (resultValue instanceof Date && !isNaN(Date.parse(value))) {
                     value = Date.parse(value);
+                    resultValue = resultValue.getTime();
                 } else if (typeof resultValue === 'string' && !isNaN(Date.parse(resultValue))) {
                     resultValue = Date.parse(resultValue);
                     value = Date.parse(value);
