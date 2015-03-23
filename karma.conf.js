@@ -21,7 +21,7 @@ module.exports = function (config) {
         coverageReporter: {
             dir: 'buildOutput/',
             reporters: [
-                {type: 'lcovonly', subdir: '.'},
+                {type: 'lcov', subdir: 'coverage'},
                 {type: 'text-summary'}
             ]
         },
