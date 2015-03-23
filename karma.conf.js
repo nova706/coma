@@ -5,8 +5,8 @@ module.exports = function (config) {
         frameworks: ['mocha', 'sinon-chai'],
 
         files: [
-            'tests/lib/angular.js',
-            'tests/lib/angular-mocks.js',
+            'https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.js',
+            'https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular-mocks.js',
             'tests/helpers/mockIndexedDB.js',
             'src/**/*.js',
             'tests/src/**/*.js'
