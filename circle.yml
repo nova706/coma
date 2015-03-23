@@ -1,0 +1,3 @@
+general:
+  artifacts:
+    - "buildOutput" # relative to the build directory
