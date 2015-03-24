@@ -1,9 +1,0 @@
-[
-    {
-        "id": "{{generateGuid()}}",
-        "firstName": "John",
-        "lastName": "Doe",
-        "lastModified": "{{new Date().toISOString()}}",
-        "deleted": false
-    }
-]
