@@ -3,16 +3,16 @@ angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
     /**
-     * The AdapterResponse class represents a response that is coming back from an adapter. Every Adapter should
-     * resolve and reject with a properly formed AdapterResponse so that the Model can handle the response.
-     *
-     * @param {Object|Array|String} data The raw data from the adapter or an error message
-     * @param {Number} [count=0] The number of records affected by the action
-     * @param {Number} [status=200] The status of the response
-     * @param {Object} [headers] The response headers (used by $http)
-     * @param {Object} [config] The configuration of the request (used by $http)
-     * @constructor
-     */
+         * The AdapterResponse class represents a response that is coming back from an adapter. Every Adapter should
+         * resolve and reject with a properly formed AdapterResponse so that the Model can handle the response.
+         *
+         * @param {Object|Array|String} data The raw data from the adapter or an error message
+         * @param {Number} [count=0] The number of records affected by the action
+         * @param {Number} [status=200] The status of the response
+         * @param {Object} [headers] The response headers (used by $http)
+         * @param {Object} [config] The configuration of the request (used by $http)
+         * @constructor
+         */
     var AdapterResponse = function(data, count, status, headers, config) {
         this.data = data;
         this.count = count || 0;
@@ -136,11 +136,11 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         /**
-         * Creates a new Entity
-         * @param {Object} theModel The model of the entity to create
-         * @param {Object} modelInstance The entity to create
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Creates a new Entity
+                 * @param {Object} theModel The model of the entity to create
+                 * @param {Object} modelInstance The entity to create
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.create = function(theModel, modelInstance) {
             var dfd = $q.defer();
             var response;
@@ -173,13 +173,13 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         /**
-         * Finds a single entity given a primary key
-         * @param {Object} theModel The model of the entity to find
-         * @param {String|Number} pk The primary key of the entity to find
-         * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
-         * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Finds a single entity given a primary key
+                 * @param {Object} theModel The model of the entity to find
+                 * @param {String|Number} pk The primary key of the entity to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
+                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.findOne = function(theModel, pk, queryOptions, includeDeleted) {
             var dfd = $q.defer();
             var response;
@@ -216,12 +216,12 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         /**
-         * Finds a set of Model entities
-         * @param {Object} theModel The model of the entities to find
-         * @param {PreparedQueryOptions} [queryOptions] The query options to use
-         * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Finds a set of Model entities
+                 * @param {Object} theModel The model of the entities to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use
+                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.find = function(theModel, queryOptions, includeDeleted) {
             var dfd = $q.defer();
             var response;
@@ -284,13 +284,13 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         /**
-         * Updates a Model entity given the primary key of the entity
-         * @param {Object} theModel The model of the entity to update
-         * @param {String|Number} pk The primary key of the entity
-         * @param {Object} modelInstance The entity to update
-         * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Updates a Model entity given the primary key of the entity
+                 * @param {Object} theModel The model of the entity to update
+                 * @param {String|Number} pk The primary key of the entity
+                 * @param {Object} modelInstance The entity to update
+                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.update = function(theModel, pk, modelInstance, includeDeleted) {
             var dfd = $q.defer();
             var response;
@@ -336,11 +336,11 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
         };
         // TODO: Cascade Delete
         /**
-         * Removes an Entity given the primary key of the entity to remove
-         * @param {Object} theModel The model of the entity to remove
-         * @param {String|Number} pk The primary key of the entity
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Removes an Entity given the primary key of the entity to remove
+                 * @param {Object} theModel The model of the entity to remove
+                 * @param {String|Number} pk The primary key of the entity
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.remove = function(theModel, pk) {
             var dfd = $q.defer();
             var response;
@@ -381,11 +381,11 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         /**
-         * Takes an Array of entities and creates/updates/deletes them
-         * @param {Object} theModel The model of the entities to synchronize
-         * @param {Array} dataToSync An array of objects to create/update/delete
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Takes an Array of entities and creates/updates/deletes them
+                 * @param {Object} theModel The model of the entities to synchronize
+                 * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.synchronize = function(theModel, dataToSync) {
             var dfd = $q.defer();
             var response;
@@ -685,11 +685,11 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
             return url;
         };
         /**
-         * Creates a new Entity
-         * @param {Object} theModel The model of the entity to create
-         * @param {Object} modelInstance The entity to create
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Creates a new Entity
+                 * @param {Object} theModel The model of the entity to create
+                 * @param {Object} modelInstance The entity to create
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.create = function(theModel, modelInstance) {
             var dfd = $q.defer();
             var response;
@@ -706,12 +706,12 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
             return dfd.promise;
         };
         /**
-         * Finds a single entity given a primary key
-         * @param {Object} theModel The model of the entity to find
-         * @param {String|Number} pk The primary key of the entity to find
-         * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Finds a single entity given a primary key
+                 * @param {Object} theModel The model of the entity to find
+                 * @param {String|Number} pk The primary key of the entity to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.findOne = function(theModel, pk, queryOptions) {
             var dfd = $q.defer();
             var response;
@@ -733,11 +733,11 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
             return dfd.promise;
         };
         /**
-         * Finds a set of Model entities
-         * @param {Object} theModel The model of the entities to find
-         * @param {PreparedQueryOptions} [queryOptions] The query options to use
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Finds a set of Model entities
+                 * @param {Object} theModel The model of the entities to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.find = function(theModel, queryOptions) {
             var dfd = $q.defer();
             var response;
@@ -764,12 +764,12 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
             return dfd.promise;
         };
         /**
-         * Updates a Model entity given the primary key of the entity
-         * @param {Object} theModel The model of the entity to update
-         * @param {String|Number} pk The primary key of the entity
-         * @param {Object} modelInstance The entity to update
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Updates a Model entity given the primary key of the entity
+                 * @param {Object} theModel The model of the entity to update
+                 * @param {String|Number} pk The primary key of the entity
+                 * @param {Object} modelInstance The entity to update
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.update = function(theModel, pk, modelInstance) {
             var dfd = $q.defer();
             var response;
@@ -791,11 +791,11 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
             return dfd.promise;
         };
         /**
-         * Removes an Entity given the primary key of the entity to remove
-         * @param {Object} theModel The model of the entity to remove
-         * @param {String|Number} pk The primary key of the entity
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Removes an Entity given the primary key of the entity to remove
+                 * @param {Object} theModel The model of the entity to remove
+                 * @param {String|Number} pk The primary key of the entity
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.remove = function(theModel, pk) {
             var dfd = $q.defer();
             var response;
@@ -820,11 +820,11 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
             return dfd.promise;
         };
         /**
-         * Takes an Array of entities and creates/updates/deletes them
-         * @param {Object} theModel The model of the entities to synchronize
-         * @param {Array} dataToSync An array of objects to create/update/delete
-         * @returns {promise} Resolved with an AdapterResponse
-         */
+                 * Takes an Array of entities and creates/updates/deletes them
+                 * @param {Object} theModel The model of the entities to synchronize
+                 * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
         adapter.synchronize = function(theModel, dataToSync, lastSync) {
             var dfd = $q.defer();
             var response;
@@ -859,10 +859,10 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
 
 angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPredicate", "recallPreparedQueryOptions", function($log, $q, Predicate, PreparedQueryOptions) {
     /**
-     * Association class
-     * @param {Object|Association} definition
-     * @constructor
-     */
+         * Association class
+         * @param {Object|Association} definition
+         * @constructor
+         */
     var Association = function(definition) {
         this.invalid = false;
         if (definition.type) {
@@ -958,44 +958,44 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
         return baseModelService.getModel(modelName);
     };
     /**
-     * Set the dirty check threshold used by the entity dirty checking
-     * @param {Number} [dirtyCheckThreshold=30] in Milliseconds
-     */
+         * Set the dirty check threshold used by the entity dirty checking
+         * @param {Number} [dirtyCheckThreshold=30] in Milliseconds
+         */
     baseModelService.setDirtyCheckThreshold = function(dirtyCheckThreshold) {
         baseModelService.dirtyCheckThreshold = dirtyCheckThreshold || 30;
     };
     /**
-     * Sets the field to be used as the last modified field required for synchronization.
-     * @param {String} lastModifiedFieldName
-     */
+         * Sets the field to be used as the last modified field required for synchronization.
+         * @param {String} lastModifiedFieldName
+         */
     baseModelService.setLastModifiedFieldName = function(lastModifiedFieldName) {
         baseModelService.lastModifiedFieldName = lastModifiedFieldName;
     };
     /**
-     * Sets the field to be used as the deleted field required for synchronization.
-     * @param {String} deletedFieldName
-     */
+         * Sets the field to be used as the deleted field required for synchronization.
+         * @param {String} deletedFieldName
+         */
     baseModelService.setDeletedFieldName = function(deletedFieldName) {
         baseModelService.deletedFieldName = deletedFieldName;
     };
     /**
-     * Sets the local adapter to use for retrieving data locally.
-     * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
-     */
+         * Sets the local adapter to use for retrieving data locally.
+         * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
+         */
     baseModelService.setLocalAdapter = function(adapter) {
         baseModelService.localAdapter = adapter;
     };
     /**
-     * Sets the default remote adapter to use for retrieving data remotely. This can be overridden by an individual model.
-     * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
-     */
+         * Sets the default remote adapter to use for retrieving data remotely. This can be overridden by an individual model.
+         * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
+         */
     baseModelService.setRemoteAdapter = function(adapter) {
         baseModelService.remoteAdapter = adapter;
     };
     /**
-     * Get an array of the defined Models.
-     * @returns {Entity[]} The models
-     */
+         * Get an array of the defined Models.
+         * @returns {Entity[]} The models
+         */
     baseModelService.getModels = function() {
         var theModels = [];
         var model;
@@ -1007,20 +1007,20 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
         return theModels;
     };
     /**
-     * Gets a defined model by its name
-     * @param {String} modelName
-     * @returns {Entity} The model or null if the model is not found
-     */
+         * Gets a defined model by its name
+         * @param {String} modelName
+         * @returns {Entity} The model or null if the model is not found
+         */
     baseModelService.getModel = function(modelName) {
         return baseModelService.models[modelName] || null;
     };
     /**
-     * Creates a model based on a definition.
-     * @param {Object} modelDefinition The definition of the model including fields and associations
-     * @param {Object} [localAdapter] The adapter that is used to perform the CRUD actions locally
-     * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
-     * @returns {Entity} The model
-     */
+         * Creates a model based on a definition.
+         * @param {Object} modelDefinition The definition of the model including fields and associations
+         * @param {Object} [localAdapter] The adapter that is used to perform the CRUD actions locally
+         * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
+         * @returns {Entity} The model
+         */
     baseModelService.defineModel = function(modelDefinition, localAdapter, remoteAdapter) {
         localAdapter = localAdapter || baseModelService.localAdapter;
         remoteAdapter = remoteAdapter || baseModelService.remoteAdapter;
@@ -1045,15 +1045,15 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return baseModelService.models[modelDefinition.name];
         }
         /**
-         * An Entity is an object that represents an instance of a Model. The class has basic CRUD operations as
-         * well as some utilities. The Entity instance exposes save and move operations as well as dirty checking.
-         *
-         * @param {Object} object The object to construct the entity from
-         * @param {Boolean} [persisted = false] Set to true if this model was created from an object that came
-         *                                         from an adapter.
-         * @param {Object} [adapter=localAdapter] The adapter used to fetch the Entity.
-         * @constructor
-         */
+             * An Entity is an object that represents an instance of a Model. The class has basic CRUD operations as
+             * well as some utilities. The Entity instance exposes save and move operations as well as dirty checking.
+             *
+             * @param {Object} object The object to construct the entity from
+             * @param {Boolean} [persisted = false] Set to true if this model was created from an object that came
+             *                                         from an adapter.
+             * @param {Object} [adapter=localAdapter] The adapter used to fetch the Entity.
+             * @constructor
+             */
         var Entity = function(object, persisted, adapter) {
             Entity.extendFromRawObject(this, object);
             this.$entity = {
@@ -1147,12 +1147,12 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
         };
         initializeAssociations();
         /**
-         * Gets a Model Association by the alias name. The alias is defined as the "as" property on an alias if
-         * defined and falls back to the model name if "as" is not defined.
-         *
-         * @param {String} alias The association's alias
-         * @returns {Object} The association object
-         */
+             * Gets a Model Association by the alias name. The alias is defined as the "as" property on an alias if
+             * defined and falls back to the model name if "as" is not defined.
+             *
+             * @param {String} alias The association's alias
+             * @returns {Object} The association object
+             */
         Entity.getAssociationByAlias = function(alias) {
             var i;
             for (i = 0; i < Entity.associations.length; i++) {
@@ -1162,24 +1162,24 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             }
         };
         /**
-         * Extends an entity with a raw object. The raw object could be input from a controller or the result from
-         * an adapter.
-         *
-         * @param {Object} entity The entity to extend
-         * @param {Object} rawObject The object to extend from.
-         */
+             * Extends an entity with a raw object. The raw object could be input from a controller or the result from
+             * an adapter.
+             *
+             * @param {Object} entity The entity to extend
+             * @param {Object} rawObject The object to extend from.
+             */
         Entity.extendFromRawObject = function(entity, rawObject) {
             angular.extend(entity, Entity.getRawModelObject(rawObject));
         };
         /**
-         * Gets a raw representation of the model object to be used in adapter transactions. This returns an object
-         * in which only the Model defined fields are set. This also looks through expanded associations to set the
-         * foreignKey field for one to n associations and sets the association to the raw association object.
-         *
-         * @param {Object} modelEntity
-         * @param {Boolean} [includeExpandedAssociations = true] Include the expanded association in the raw object.
-         * @returns {Object} The raw object
-         */
+             * Gets a raw representation of the model object to be used in adapter transactions. This returns an object
+             * in which only the Model defined fields are set. This also looks through expanded associations to set the
+             * foreignKey field for one to n associations and sets the association to the raw association object.
+             *
+             * @param {Object} modelEntity
+             * @param {Boolean} [includeExpandedAssociations = true] Include the expanded association in the raw object.
+             * @returns {Object} The raw object
+             */
         Entity.getRawModelObject = function(modelEntity, includeExpandedAssociations) {
             var object = new RawModelInstance();
             var field;
@@ -1217,10 +1217,10 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return object;
         };
         /**
-         * Applies the default values on any undefined field in an entity.
-         *
-         * @param {Object} entity The entity to set the default values on
-         */
+             * Applies the default values on any undefined field in an entity.
+             *
+             * @param {Object} entity The entity to set the default values on
+             */
         Entity.applyDefaultValues = function(entity) {
             var field;
             for (field in Entity.fields) {
@@ -1232,13 +1232,13 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             }
         };
         /**
-         * Transforms all objects returned by adapter transactions. This calls the transformResult function defined
-         * in the model.
-         *
-         * @method transformResult
-         * @param {Object} resultEntity
-         * @returns {Object} The transformed result
-         */
+             * Transforms all objects returned by adapter transactions. This calls the transformResult function defined
+             * in the model.
+             *
+             * @method transformResult
+             * @param {Object} resultEntity
+             * @returns {Object} The transformed result
+             */
         Entity.transformResult = function(resultEntity) {
             resultEntity = Entity.getRawModelObject(resultEntity);
             if (typeof modelDefinition.transformResult === "function") {
@@ -1247,13 +1247,13 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return resultEntity;
         };
         /**
-         * Ran before the create and update adapter transactions. This calls the preSave function defined in the
-         * model.
-         *
-         * @method preSave
-         * @param {Object} entity
-         * @returns {Object} The raw transformed entity
-         */
+             * Ran before the create and update adapter transactions. This calls the preSave function defined in the
+             * model.
+             *
+             * @method preSave
+             * @param {Object} entity
+             * @returns {Object} The raw transformed entity
+             */
         Entity.preSave = function(entity) {
             entity = Entity.getRawModelObject(entity);
             if (typeof modelDefinition.preSave === "function") {
@@ -1262,13 +1262,13 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return entity;
         };
         /**
-         * Ran before the create adapter transaction. This applies the default values to any undefined fields and
-         * then calls the preCreate function defined in the model.
-         *
-         * @method preCreate
-         * @param {Object} rawEntity
-         * @returns {Object} The raw transformed entity
-         */
+             * Ran before the create adapter transaction. This applies the default values to any undefined fields and
+             * then calls the preCreate function defined in the model.
+             *
+             * @method preCreate
+             * @param {Object} rawEntity
+             * @returns {Object} The raw transformed entity
+             */
         Entity.preCreate = function(rawEntity) {
             Entity.applyDefaultValues(rawEntity);
             if (typeof modelDefinition.preCreate === "function") {
@@ -1277,12 +1277,12 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return rawEntity;
         };
         /**
-         * Ran before the update adapter transaction. This calls the preUpdate function defined in the model.
-         *
-         * @method preUpdate
-         * @param {Object} rawEntity
-         * @returns {Object} The raw transformed entity
-         */
+             * Ran before the update adapter transaction. This calls the preUpdate function defined in the model.
+             *
+             * @method preUpdate
+             * @param {Object} rawEntity
+             * @returns {Object} The raw transformed entity
+             */
         Entity.preUpdate = function(rawEntity) {
             if (typeof modelDefinition.preUpdate === "function") {
                 return modelDefinition.preUpdate(rawEntity);
@@ -1290,15 +1290,15 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return rawEntity;
         };
         /**
-         * Retrieves a single model from the adapter given a primary key. Query options can be passed to determine
-         * select and expand operations.
-         *
-         * @method findOne
-         * @param {String} pk The primary key of the model to retrieve
-         * @param {Object} [queryOptions] Query options to use for retrieval
-         * @param {Boolean} [remote=false] Use the remote adapter if supplied
-         * @returns {promise} Resolves with the model
-         */
+             * Retrieves a single model from the adapter given a primary key. Query options can be passed to determine
+             * select and expand operations.
+             *
+             * @method findOne
+             * @param {String} pk The primary key of the model to retrieve
+             * @param {Object} [queryOptions] Query options to use for retrieval
+             * @param {Boolean} [remote=false] Use the remote adapter if supplied
+             * @returns {promise} Resolves with the model
+             */
         Entity.findOne = function(pk, queryOptions, remote) {
             if (!pk) {
                 $log.error("BaseModelService: FindOne", "The primary key was not supplied");
@@ -1313,14 +1313,14 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             }, propagateError);
         };
         /**
-         * Retrieves a list of models from the adapter. Query options can be passed to determine top, skip, order by,
-         * select, expand, and filter operations.
-         *
-         * @method find
-         * @param {Object} [queryOptions] Query options to use for retrieval
-         * @param {Boolean} [remote=false] Use the remote adapter if supplied
-         * @returns {promise} Resolves with data.results and data.totalCount where results are models
-         */
+             * Retrieves a list of models from the adapter. Query options can be passed to determine top, skip, order by,
+             * select, expand, and filter operations.
+             *
+             * @method find
+             * @param {Object} [queryOptions] Query options to use for retrieval
+             * @param {Boolean} [remote=false] Use the remote adapter if supplied
+             * @returns {promise} Resolves with data.results and data.totalCount where results are models
+             */
         Entity.find = function(queryOptions, remote) {
             var adapter = remote === true && remoteAdapter ? remoteAdapter : localAdapter;
             return adapter.find(new RecallModel(Entity), queryOptions).then(function(response) {
@@ -1338,13 +1338,13 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             }, propagateError);
         };
         /**
-         * Removes the model from the adapter given a primary key.
-         *
-         * @method remove
-         * @param {String} pk The primary key of the model to remove
-         * @param {Boolean} [remote=false] Use the remote adapter if supplied
-         * @returns {promise}
-         */
+             * Removes the model from the adapter given a primary key.
+             *
+             * @method remove
+             * @param {String} pk The primary key of the model to remove
+             * @param {Boolean} [remote=false] Use the remote adapter if supplied
+             * @returns {promise}
+             */
         Entity.remove = function(pk, remote) {
             if (!pk) {
                 $log.error("BaseModelService: Remove", "The primary key was not supplied");
@@ -1354,32 +1354,32 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return adapter.remove(new RecallModel(Entity), pk);
         };
         /**
-         * Synchronizes all modified entities between a local and remote adapter.
-         * @returns {promise}
-         */
+             * Synchronizes all modified entities between a local and remote adapter.
+             * @returns {promise}
+             */
         Entity.synchronize = function() {
             return syncHandler.model(Entity);
         };
         /**
-         * Synchronizes a single entity between a local and remote adapter.
-         * @returns {promise}
-         */
+             * Synchronizes a single entity between a local and remote adapter.
+             * @returns {promise}
+             */
         Entity.prototype.$sync = function() {
             return syncHandler.entity(Entity, this);
         };
         /**
-         * Retrieves the Primary Key for the Entity.
-         * @returns {String|Number} The Primary Key
-         */
+             * Retrieves the Primary Key for the Entity.
+             * @returns {String|Number} The Primary Key
+             */
         Entity.prototype.$getPrimaryKey = function() {
             return this[Entity.primaryKeyFieldName];
         };
         /**
-         * Expands a given association on an Entity
-         *
-         * @param {String} associationName The alias of the association to expand
-         * @returns {promise}
-         */
+             * Expands a given association on an Entity
+             *
+             * @param {String} associationName The alias of the association to expand
+             * @returns {promise}
+             */
         Entity.prototype.$expand = function(associationName) {
             var association = Entity.getAssociationByAlias(associationName);
             if (!association) {
@@ -1388,9 +1388,9 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return association.expand(this, this.$entity.adapter === remoteAdapter);
         };
         /**
-         * Validates an entity against the model's field definition.
-         * @returns {Boolean} True if the model validation succeeds
-         */
+             * Validates an entity against the model's field definition.
+             * @returns {Boolean} True if the model validation succeeds
+             */
         Entity.prototype.$isValid = function() {
             // TODO: This does not validate associations
             var field;
@@ -1405,19 +1405,19 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
                         return false;
                     }
                     switch (Entity.fields[field].type) {
-                    case "String":
+                      case "String":
                         matchesType = typeof this[field] === "string";
                         break;
 
-                    case "Number":
+                      case "Number":
                         matchesType = typeof this[field] === "number";
                         break;
 
-                    case "Boolean":
+                      case "Boolean":
                         matchesType = this[field] === true || this[field] === false;
                         break;
 
-                    case "Date":
+                      case "Date":
                         matchesType = this[field] instanceof Date && !isNaN(Date.parse(this[field]));
                         break;
                     }
@@ -1437,13 +1437,13 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return valid;
         };
         /**
-         * Persists the model with the adapter. This will update the model if it exists in the adapter or create
-         * the model if it does not exist.
-         *
-         * @method $save
-         * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
-         * @returns {promise} Resolves with the model
-         */
+             * Persists the model with the adapter. This will update the model if it exists in the adapter or create
+             * the model if it does not exist.
+             *
+             * @method $save
+             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
+             * @returns {promise} Resolves with the model
+             */
         Entity.prototype.$save = function(remote) {
             var self = this;
             var itemToSave = Entity.preSave(this);
@@ -1500,12 +1500,12 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             });
         };
         /**
-         * Removes the model from the adapter.
-         *
-         * @method $remove
-         * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
-         * @returns {promise}
-         */
+             * Removes the model from the adapter.
+             *
+             * @method $remove
+             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
+             * @returns {promise}
+             */
         Entity.prototype.$remove = function(remote) {
             if (this[Entity.primaryKeyFieldName]) {
                 var adapter = remote === true && remoteAdapter ? remoteAdapter : this.$entity.adapter;
@@ -1515,23 +1515,23 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return $q.reject("The primary key was not found.");
         };
         /**
-         * Stores the model's state so that it can later be reset to the state if needed. This is called
-         * on $save so that the model's state is always at the latest save point.
-         *
-         * @method $storeState
-         */
+             * Stores the model's state so that it can later be reset to the state if needed. This is called
+             * on $save so that the model's state is always at the latest save point.
+             *
+             * @method $storeState
+             */
         Entity.prototype.$storeState = function() {
             this.$entity.storedState = Entity.getRawModelObject(this);
             this.$entity.lastDirtyCheck = new Date().getTime();
             this.$entity.lastDirtyState = false;
         };
         /**
-         * Checks to see if the properties have diverged from the stored state. If so, this means that
-         * the properties have been changed and have not been saved.
-         *
-         * @method $isDirty
-         * @returns {Boolean} True if the properties are different than what is in the stored state.
-         */
+             * Checks to see if the properties have diverged from the stored state. If so, this means that
+             * the properties have been changed and have not been saved.
+             *
+             * @method $isDirty
+             * @returns {Boolean} True if the properties are different than what is in the stored state.
+             */
         Entity.prototype.$isDirty = function() {
             if (this.$entity.saveInProgress) {
                 return false;
@@ -1566,12 +1566,12 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             return false;
         };
         /**
-         * Resets a model back to its stored state. This will reset any pending changes back to the
-         * entities last save or initial retrieval.
-         *
-         * @method $reset
-         * @returns {Array} A list of the changed field names and their before and after values
-         */
+             * Resets a model back to its stored state. This will reset any pending changes back to the
+             * entities last save or initial retrieval.
+             *
+             * @method $reset
+             * @returns {Array} A list of the changed field names and their before and after values
+             */
         Entity.prototype.$reset = function() {
             if (!this.$entity.storedState) {
                 this.$storeState();
@@ -1605,8 +1605,8 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
 
 angular.module("recall").factory("recallLocalStorage", [ function() {
     /**
-     * The localStorage utility helps manage the storage and retrieval of registered application data.
-     */
+         * The localStorage utility helps manage the storage and retrieval of registered application data.
+         */
     var storage = {
         localStorage: window.localStorage,
         cookie: document.cookie,
@@ -1615,20 +1615,20 @@ angular.module("recall").factory("recallLocalStorage", [ function() {
         }
     };
     /**
-     * Checks if the key is registered with the class.
-     *
-     * @param {String} key
-     * @returns {Boolean} True if the key exists
-     */
+         * Checks if the key is registered with the class.
+         *
+         * @param {String} key
+         * @returns {Boolean} True if the key exists
+         */
     var keyExists = function(key) {
         return storage.keys[key] !== undefined;
     };
     /**
-     * Appends a modifier to a key
-     * @param {String} key
-     * @param {String} modifier
-     * @returns {String} The key with the modifier appended.
-     */
+         * Appends a modifier to a key
+         * @param {String} key
+         * @param {String} modifier
+         * @returns {String} The key with the modifier appended.
+         */
     var addKeyModifier = function(key, modifier) {
         if (modifier) {
             key += "_" + modifier;
@@ -1636,12 +1636,12 @@ angular.module("recall").factory("recallLocalStorage", [ function() {
         return key;
     };
     /**
-     * Stores data by key in local browser storage.
-     *
-     * @param {String} key The key to use as the local storage name. Must be a key found in localStorage.keys.
-     * @param {String} value The string value to store.
-     * @param {String} keyModifier An additional identifier on the key.
-     */
+         * Stores data by key in local browser storage.
+         *
+         * @param {String} key The key to use as the local storage name. Must be a key found in localStorage.keys.
+         * @param {String} value The string value to store.
+         * @param {String} keyModifier An additional identifier on the key.
+         */
     storage.set = function(key, value, keyModifier) {
         if (keyExists(key)) {
             key = addKeyModifier(key, keyModifier);
@@ -1655,12 +1655,12 @@ angular.module("recall").factory("recallLocalStorage", [ function() {
         }
     };
     /**
-     * Retrieves stored data by key.
-     *
-     * @param {String} key The key of the data to retrieve. Must be a key found in localStorage.keys.
-     * @param {String} keyModifier An additional identifier on the key.
-     * @return {String} The string value stored.
-     */
+         * Retrieves stored data by key.
+         *
+         * @param {String} key The key of the data to retrieve. Must be a key found in localStorage.keys.
+         * @param {String} keyModifier An additional identifier on the key.
+         * @return {String} The string value stored.
+         */
     storage.get = function(key, keyModifier) {
         var value = "";
         if (keyExists(key)) {
@@ -1678,11 +1678,11 @@ angular.module("recall").factory("recallLocalStorage", [ function() {
         return value;
     };
     /**
-     * Removes stored data by key.
-     *
-     * @param {String} key The key of the data to remove. Must be a key found in localStorage.keys.
-     * @param {String} keyModifier An additional identifier on the key.
-     */
+         * Removes stored data by key.
+         *
+         * @param {String} key The key of the data to remove. Must be a key found in localStorage.keys.
+         * @param {String} keyModifier An additional identifier on the key.
+         */
     storage.remove = function(key, keyModifier) {
         if (keyExists(key)) {
             key = addKeyModifier(key, keyModifier);
@@ -1694,11 +1694,11 @@ angular.module("recall").factory("recallLocalStorage", [ function() {
         }
     };
     /**
-     * Checks if the browser supports html5 local storage.
-     *
-     * @private
-     * @returns {Boolean} True if the browser does support html5 local storage.
-     */
+         * Checks if the browser supports html5 local storage.
+         *
+         * @private
+         * @returns {Boolean} True if the browser does support html5 local storage.
+         */
     storage.supportsLocalStorage = function() {
         try {
             return "localStorage" in window && window.localStorage !== null;
@@ -1711,11 +1711,11 @@ angular.module("recall").factory("recallLocalStorage", [ function() {
 
 angular.module("recall").factory("recallModelField", [ "$log", function($log) {
     /**
-     * Model Field class to make all model fields consistent
-     * @param {String} name
-     * @param {Object | String} definition The Field Definition or the Field Type
-     * @constructor
-     */
+         * Model Field class to make all model fields consistent
+         * @param {String} name
+         * @param {Object | String} definition The Field Definition or the Field Type
+         * @constructor
+         */
     var ModelField = function(name, definition) {
         this.invalid = false;
         this.name = name;
@@ -1770,39 +1770,39 @@ if (!Date.prototype.toISOString) {
 
 angular.module("recall").factory("recallPredicate", [ function() {
     /*
-     * BASED ON:
-     * Predicate
-     * version: 1.1.2
-     * author: David Hamilton
-     * license: https://github.com/nova706/PreparedQueryOptions/blob/master/LICENSE.txt (MIT)
-     * https://github.com/nova706/PreparedQueryOptions
-     *
-     */
+         * BASED ON:
+         * Predicate
+         * version: 1.1.2
+         * author: David Hamilton
+         * license: https://github.com/nova706/PreparedQueryOptions/blob/master/LICENSE.txt (MIT)
+         * https://github.com/nova706/PreparedQueryOptions
+         *
+         */
     /**
-     * A predicate is used for the $filter operator in a query. Predicates can be joined to query
-     * using a group of filters with the 'and' operator.
-     *
-     * This is a helper class for the PreparedQueryOptions class to assist in building complex
-     * filter clauses.
-     *
-     * @class Predicate
-     * @constructor
-     * @param {String} [property] The property to filter by.
-     * @param {Function} [parser] A function that returns the predicate string.
-     */
+         * A predicate is used for the $filter operator in a query. Predicates can be joined to query
+         * using a group of filters with the 'and' operator.
+         *
+         * This is a helper class for the PreparedQueryOptions class to assist in building complex
+         * filter clauses.
+         *
+         * @class Predicate
+         * @constructor
+         * @param {String} [property] The property to filter by.
+         * @param {Function} [parser] A function that returns the predicate string.
+         */
     function Predicate(property, parser) {
         this.property = property;
         this.parser = parser;
         return this;
     }
     /**
-     * Joins a provided set of predicates using the group operator and returns a new Predicate
-     *
-     * @method join
-     * @param {Predicate[]} predicates Array of predicates to join.
-     * @param {String} [groupOperator] The operator for the filter set ('and' 'or').
-     * @return {Predicate} Predicate object.
-     */
+         * Joins a provided set of predicates using the group operator and returns a new Predicate
+         *
+         * @method join
+         * @param {Predicate[]} predicates Array of predicates to join.
+         * @param {String} [groupOperator] The operator for the filter set ('and' 'or').
+         * @return {Predicate} Predicate object.
+         */
     Predicate.join = function(predicates, groupOperator) {
         if (predicates instanceof Array && predicates.length > 0) {
             return new Predicate().join(predicates, groupOperator);
@@ -1810,23 +1810,23 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return null;
     };
     /**
-     * Sets the property of a predicate
-     *
-     * @method setProperty
-     * @param {String} property
-     * @return {Predicate} Predicate object.
-     */
+         * Sets the property of a predicate
+         *
+         * @method setProperty
+         * @param {String} property
+         * @return {Predicate} Predicate object.
+         */
     Predicate.prototype.setProperty = function(property) {
         this.property = property;
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operator to 'eq' and the value to the input parameter
-     *
-     * @method equals
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operator to 'eq' and the value to the input parameter
+         *
+         * @method equals
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.equals = function(value) {
         this.parser = function() {
             return this.property + " eq " + escapeValue(value);
@@ -1834,12 +1834,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operator to 'ne' and the value to the input parameter
-     *
-     * @method notEqualTo
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operator to 'ne' and the value to the input parameter
+         *
+         * @method notEqualTo
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.notEqualTo = function(value) {
         this.parser = function() {
             return this.property + " ne " + escapeValue(value);
@@ -1847,12 +1847,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operator to 'gt' and the value to the input parameter
-     *
-     * @method greaterThan
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operator to 'gt' and the value to the input parameter
+         *
+         * @method greaterThan
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.greaterThan = function(value) {
         this.parser = function() {
             return this.property + " gt " + escapeValue(value);
@@ -1860,12 +1860,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operator to 'ge' and the value to the input parameter
-     *
-     * @method greaterThanOrEqualTo
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operator to 'ge' and the value to the input parameter
+         *
+         * @method greaterThanOrEqualTo
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.greaterThanOrEqualTo = function(value) {
         this.parser = function() {
             return this.property + " ge " + escapeValue(value);
@@ -1873,12 +1873,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operator to 'lt' and the value to the input parameter
-     *
-     * @method lessThan
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operator to 'lt' and the value to the input parameter
+         *
+         * @method lessThan
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.lessThan = function(value) {
         this.parser = function() {
             return this.property + " lt " + escapeValue(value);
@@ -1886,12 +1886,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operator to 'le' and the value to the input parameter
-     *
-     * @method lessThanOrEqualTo
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operator to 'le' and the value to the input parameter
+         *
+         * @method lessThanOrEqualTo
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.lessThanOrEqualTo = function(value) {
         this.parser = function() {
             return this.property + " le " + escapeValue(value);
@@ -1899,12 +1899,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operation to substringof and the value to the input parameter
-     *
-     * @method contains
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operation to substringof and the value to the input parameter
+         *
+         * @method contains
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.contains = function(value) {
         this.parser = function() {
             return "substringof(" + escapeValue(value) + ", " + this.property + ")";
@@ -1912,12 +1912,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operation to startswith and the value to the input parameter
-     *
-     * @method startsWith
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operation to startswith and the value to the input parameter
+         *
+         * @method startsWith
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.startsWith = function(value) {
         this.parser = function() {
             return "startswith(" + this.property + ", " + escapeValue(value) + ")";
@@ -1925,12 +1925,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Modifies an existing predicate setting the operation to endswith and the value to the input parameter
-     *
-     * @method startsWith
-     * @param {String|Number|Boolean} (value) The value to match.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Modifies an existing predicate setting the operation to endswith and the value to the input parameter
+         *
+         * @method startsWith
+         * @param {String|Number|Boolean} (value) The value to match.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.endsWith = function(value) {
         this.parser = function() {
             return "endswith(" + this.property + ", " + escapeValue(value) + ")";
@@ -1938,13 +1938,13 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Joins an existing predicate with additional predicates using the group operator
-     *
-     * @method join
-     * @param {Predicate|Predicate[]} predicates A single predicate or an array of predicates to join to the existing one.
-     * @param {String} [groupOperator] The operator for the filter set ('and' 'or').
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Joins an existing predicate with additional predicates using the group operator
+         *
+         * @method join
+         * @param {Predicate|Predicate[]} predicates A single predicate or an array of predicates to join to the existing one.
+         * @param {String} [groupOperator] The operator for the filter set ('and' 'or').
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.join = function(predicates, groupOperator) {
         var initialPredicate;
         if (this.property && typeof this.parser === "function") {
@@ -1975,43 +1975,43 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return this;
     };
     /**
-     * Joins an existing predicate with additional predicates using the 'and' group operator
-     *
-     * @method and
-     * @param {Predicate|Predicate[]} predicates A single predicate or an array of predicates to join to the existing one.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Joins an existing predicate with additional predicates using the 'and' group operator
+         *
+         * @method and
+         * @param {Predicate|Predicate[]} predicates A single predicate or an array of predicates to join to the existing one.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.and = function(predicates) {
         return this.join(predicates, "and");
     };
     /**
-     * Joins an existing predicate with additional predicates using the 'or' group operator
-     *
-     * @method or
-     * @param {Predicate|Predicate[]} predicates A single predicate or an array of predicates to join to the existing one.
-     * @return {Predicate} Used for chaining function calls
-     */
+         * Joins an existing predicate with additional predicates using the 'or' group operator
+         *
+         * @method or
+         * @param {Predicate|Predicate[]} predicates A single predicate or an array of predicates to join to the existing one.
+         * @return {Predicate} Used for chaining function calls
+         */
     Predicate.prototype.or = function(predicates) {
         return this.join(predicates, "or");
     };
     /**
-     * Evaluate an object to see if it matches the predicate filter conditions.
-     *
-     * @method test
-     * @param {Object} object The object to test against the predicate.
-     * @param {Boolean} [failOnMissingAssociation=true] Should the test fail when the a filter is performed against an expanded association that is not present
-     * @return {Boolean} True if the object matches the filter conditions.
-     */
+         * Evaluate an object to see if it matches the predicate filter conditions.
+         *
+         * @method test
+         * @param {Object} object The object to test against the predicate.
+         * @param {Boolean} [failOnMissingAssociation=true] Should the test fail when the a filter is performed against an expanded association that is not present
+         * @return {Boolean} True if the object matches the filter conditions.
+         */
     Predicate.prototype.test = function(object, failOnMissingAssociation) {
         return testPredicate(this, object, failOnMissingAssociation);
     };
     /**
-     * Builds and returns a URL parameter string based on the predicate.
-     *
-     * @method parsePredicate
-     * @param {Boolean} [nested = false] Used for building the nested group during recursion
-     * @returns {String}
-     */
+         * Builds and returns a URL parameter string based on the predicate.
+         *
+         * @method parsePredicate
+         * @param {Boolean} [nested = false] Used for building the nested group during recursion
+         * @returns {String}
+         */
     Predicate.prototype.parsePredicate = function(nested) {
         nested = nested === true;
         var urlString = "";
@@ -2031,12 +2031,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return nested ? "(" + urlString + ")" : urlString;
     };
     /**
-     * Creates a predicate structure from a string
-     *
-     * @method fromString
-     * @param {String} predicateString
-     * @return {Predicate|null} null if the predicate could not be built from the string
-     */
+         * Creates a predicate structure from a string
+         *
+         * @method fromString
+         * @param {String} predicateString
+         * @return {Predicate|null} null if the predicate could not be built from the string
+         */
     Predicate.fromString = function(predicateString) {
         if (typeof predicateString !== "string") {
             return null;
@@ -2072,12 +2072,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return buildPredicateFromMap(predicateString, filters);
     };
     /**
-     * Builds a predicate based on a predicate map and array of extracted filters
-     * @param {String} predicateMap A String representing a map of a predicate where the indexes map to the filters array
-     *                              "1 and (2 or 3)" where filters.length === 3
-     * @param {Predicate[]} filters An array of Predicates whose index map to the indexes on the predicateMap
-     * @returns {Predicate|Null} The resulting Predicate or null if the map is invalid
-     */
+         * Builds a predicate based on a predicate map and array of extracted filters
+         * @param {String} predicateMap A String representing a map of a predicate where the indexes map to the filters array
+         *                              "1 and (2 or 3)" where filters.length === 3
+         * @param {Predicate[]} filters An array of Predicates whose index map to the indexes on the predicateMap
+         * @returns {Predicate|Null} The resulting Predicate or null if the map is invalid
+         */
     var buildPredicateFromMap = function(predicateMap, filters) {
         var closeParenthesisIndex;
         var openParenthesisIndex;
@@ -2118,12 +2118,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return groupPredicate;
     };
     /**
-     * Takes a predicate's value and if it is a string, adds single quotes around it.
-     *
-     * @method escapeValue
-     * @param {String|Boolean|Number|Date} value
-     * @returns {string} The string value
-     */
+         * Takes a predicate's value and if it is a string, adds single quotes around it.
+         *
+         * @method escapeValue
+         * @param {String|Boolean|Number|Date} value
+         * @returns {string} The string value
+         */
     var escapeValue = function(value) {
         if (value instanceof Date) {
             value = value.toISOString();
@@ -2131,12 +2131,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return typeof value === "string" ? "'" + value + "'" : value.toString();
     };
     /**
-     * Returns the raw value of the predicate string
-     *
-     * @method convertValueToType
-     * @param {String} value
-     * @returns {String|Boolean|Number}
-     */
+         * Returns the raw value of the predicate string
+         *
+         * @method convertValueToType
+         * @param {String} value
+         * @returns {String|Boolean|Number}
+         */
     var convertValueToType = function(value) {
         if (typeof value === "string") {
             if (value.indexOf("'") >= 0) {
@@ -2155,11 +2155,11 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return value;
     };
     /**
-     * Tests a predicate group to see if the object matches
-     * @param {Predicate} predicate
-     * @param {Object} object
-     * @returns {Boolean} True if the object matches the predicate
-     */
+         * Tests a predicate group to see if the object matches
+         * @param {Predicate} predicate
+         * @param {Object} object
+         * @returns {Boolean} True if the object matches the predicate
+         */
     var testPredicateGroup = function(predicate, object) {
         var result;
         var i;
@@ -2178,12 +2178,12 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return predicate.groupOperator === "and";
     };
     /**
-     * Tests an object to see if the filter conditions match a given predicate. Used for recursive tests.
-     *
-     * @param {Predicate} predicate
-     * @param {Object} object
-     * @param {Boolean} [failOnMissingAssociation=true] Should the test fail when the a filter is performed against an expanded association that is not present
-     */
+         * Tests an object to see if the filter conditions match a given predicate. Used for recursive tests.
+         *
+         * @param {Predicate} predicate
+         * @param {Object} object
+         * @param {Boolean} [failOnMissingAssociation=true] Should the test fail when the a filter is performed against an expanded association that is not present
+         */
     var testPredicate = function(predicate, object, failOnMissingAssociation) {
         if (predicate.joinedPredicates && predicate.joinedPredicates.length > 0) {
             return testPredicateGroup(predicate, object);
@@ -2208,11 +2208,11 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return false;
     };
     /**
-     * Tests a complex predicate that uses startswith, endswith, or substringof
-     * @param {String} condition The Predicate condition
-     * @param {String|Number|Boolean} objectValue The value that is being tested
-     * @returns {Boolean} True if the object value matches the condition
-     */
+         * Tests a complex predicate that uses startswith, endswith, or substringof
+         * @param {String} condition The Predicate condition
+         * @param {String|Number|Boolean} objectValue The value that is being tested
+         * @returns {Boolean} True if the object value matches the condition
+         */
     var testComplexPredicate = function(condition, objectValue) {
         var value;
         var operator = condition.substr(0, condition.indexOf("("));
@@ -2221,26 +2221,26 @@ angular.module("recall").factory("recallPredicate", [ function() {
         var conditionParams = condition.substr(start, end);
         conditionParams = conditionParams.replace(/\'/g, "").split(", ");
         switch (operator) {
-        case "startswith":
+          case "startswith":
             value = conditionParams[1].toLowerCase();
             return objectValue.indexOf(value) === 0;
 
-        case "endswith":
+          case "endswith":
             value = conditionParams[1].toLowerCase();
             return objectValue.indexOf(value) === objectValue.length - 1 - value.length;
 
-        case "substringof":
+          case "substringof":
             value = conditionParams[0].toLowerCase();
             return objectValue.indexOf(value) >= 0;
         }
         return false;
     };
     /**
-     * Tests a simple predicate that uses lt, gt, le, ge, ne, or eq
-     * @param {String} condition The Predicate condition
-     * @param {String|Number|Boolean} objectValue The value that is being tested
-     * @returns {Boolean} True if the object value matches the condition
-     */
+         * Tests a simple predicate that uses lt, gt, le, ge, ne, or eq
+         * @param {String} condition The Predicate condition
+         * @param {String|Number|Boolean} objectValue The value that is being tested
+         * @returns {Boolean} True if the object value matches the condition
+         */
     var testSimplePredicate = function(condition, objectValue) {
         var conditionParams = condition.split(" ");
         var operator = conditionParams[1];
@@ -2256,32 +2256,32 @@ angular.module("recall").factory("recallPredicate", [ function() {
         }
         /* jshint eqeqeq: false */
         switch (operator) {
-        case "lt":
+          case "lt":
             return objectValue < value;
 
-        case "gt":
+          case "gt":
             return objectValue > value;
 
-        case "le":
+          case "le":
             return objectValue <= value;
 
-        case "ge":
+          case "ge":
             return objectValue >= value;
 
-        case "ne":
+          case "ne":
             return objectValue != value;
 
-        case "eq":
+          case "eq":
             return objectValue == value;
         }
         /* jshint eqeqeq: true */
         return false;
     };
     /**
-     * Builds a predicate from a complex segment that uses startswith, endswith, or substringof
-     * @param {String} condition The predicate condition
-     * @returns {Predicate} The resulting Predicate
-     */
+         * Builds a predicate from a complex segment that uses startswith, endswith, or substringof
+         * @param {String} condition The predicate condition
+         * @returns {Predicate} The resulting Predicate
+         */
     var getComplexPredicateFromSegment = function(condition) {
         var predicate;
         var value;
@@ -2289,17 +2289,17 @@ angular.module("recall").factory("recallPredicate", [ function() {
         var operator = condition.substring(0, parenPos);
         var conditionParams = condition.substring(parenPos + 1, condition.indexOf(")")).split(", ");
         switch (operator) {
-        case "startswith":
+          case "startswith":
             value = convertValueToType(conditionParams[1]);
             predicate = new Predicate(conditionParams[0]).startsWith(value);
             break;
 
-        case "endswith":
+          case "endswith":
             value = convertValueToType(conditionParams[1]);
             predicate = new Predicate(conditionParams[0]).endsWith(value);
             break;
 
-        case "substringof":
+          case "substringof":
             value = convertValueToType(conditionParams[0]);
             predicate = new Predicate(conditionParams[1]).contains(value);
             break;
@@ -2307,48 +2307,48 @@ angular.module("recall").factory("recallPredicate", [ function() {
         return predicate;
     };
     /**
-     * Builds a predicate from a simple segment that uses eq, ne, gt, ge, lt, or le
-     * @param {String} condition The predicate condition
-     * @returns {Predicate} The resulting Predicate
-     */
+         * Builds a predicate from a simple segment that uses eq, ne, gt, ge, lt, or le
+         * @param {String} condition The predicate condition
+         * @returns {Predicate} The resulting Predicate
+         */
     var getSimplePredicateFromSegment = function(condition) {
         var conditionParams = condition.split(" ");
         var operator = conditionParams[1];
         var value = convertValueToType(conditionParams.slice(2).join(" "));
         var predicate = new Predicate(conditionParams[0]);
         switch (operator) {
-        case "eq":
+          case "eq":
             predicate.equals(value);
             break;
 
-        case "ne":
+          case "ne":
             predicate.notEqualTo(value);
             break;
 
-        case "gt":
+          case "gt":
             predicate.greaterThan(value);
             break;
 
-        case "ge":
+          case "ge":
             predicate.greaterThanOrEqualTo(value);
             break;
 
-        case "lt":
+          case "lt":
             predicate.lessThan(value);
             break;
 
-        case "le":
+          case "le":
             predicate.lessThanOrEqualTo(value);
             break;
         }
         return predicate;
     };
     /**
-     * Creates a predicate from a single condition eg: "property eq 'value'"
-     *
-     * @param {String} condition
-     * @return {Predicate} The predicate built from the condition
-     */
+         * Creates a predicate from a single condition eg: "property eq 'value'"
+         *
+         * @param {String} condition
+         * @return {Predicate} The predicate built from the condition
+         */
     var getPredicateFromSegment = function(condition) {
         if (condition.indexOf("(") >= 0) {
             return getComplexPredicateFromSegment(condition);
@@ -2360,42 +2360,42 @@ angular.module("recall").factory("recallPredicate", [ function() {
 
 angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicate", function(Predicate) {
     /*
-     * BASED ON:
-     * PreparedQueryOptions
-     * version: 1.1.2
-     * author: David Hamilton
-     * license: https://github.com/nova706/PreparedQueryOptions/blob/master/LICENSE.txt (MIT)
-     * https://github.com/nova706/PreparedQueryOptions
-     *
-     */
+         * BASED ON:
+         * PreparedQueryOptions
+         * version: 1.1.2
+         * author: David Hamilton
+         * license: https://github.com/nova706/PreparedQueryOptions/blob/master/LICENSE.txt (MIT)
+         * https://github.com/nova706/PreparedQueryOptions
+         *
+         */
     /**
-     * PreparedQueryOptions are used to set, store and parse OData query parameters. Instead of passing
-     * multiple arguments to methods for each query option, simply pass the preparedQueryOptions object.
-     * Use the parseOptions method on the object to return an OData string for a query.
-     *
-     * @class PreparedQueryOptions
-     * @constructor
-     */
+         * PreparedQueryOptions are used to set, store and parse OData query parameters. Instead of passing
+         * multiple arguments to methods for each query option, simply pass the preparedQueryOptions object.
+         * Use the parseOptions method on the object to return an OData string for a query.
+         *
+         * @class PreparedQueryOptions
+         * @constructor
+         */
     function PreparedQueryOptions() {
         /**
-         * Stores the query options that have been set.
-         * @property options
-         * @type Object
-         * @default {}
-         */
+             * Stores the query options that have been set.
+             * @property options
+             * @type Object
+             * @default {}
+             */
         this.options = {};
     }
     var isPredicate = function(object) {
         return object && typeof object === "object" && typeof object.parsePredicate === "function";
     };
     /**
-     * Sets the number of results to retrieve. Passing a null top value will clear the top option. Negating the value
-     * will return the current top value.
-     *
-     * @method $top
-     * @param {Number} [top] Number of results to query for.
-     * @return {PreparedQueryOptions|Number} PreparedQueryOptions object or the current $top value.
-     */
+         * Sets the number of results to retrieve. Passing a null top value will clear the top option. Negating the value
+         * will return the current top value.
+         *
+         * @method $top
+         * @param {Number} [top] Number of results to query for.
+         * @return {PreparedQueryOptions|Number} PreparedQueryOptions object or the current $top value.
+         */
     PreparedQueryOptions.prototype.$top = function(top) {
         if (arguments.length === 0) {
             return this.options.$top || null;
@@ -2409,13 +2409,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Sets the index of the first result to retrieve. Passing a null skip value will clear the skip option. Negating the
-     * value will return the current skip value.
-     *
-     * @method $skip
-     * @param {Number} [skip] The index of the first result to retrieve
-     * @return {PreparedQueryOptions|Number} PreparedQueryOptions object or the current $skip value.
-     */
+         * Sets the index of the first result to retrieve. Passing a null skip value will clear the skip option. Negating the
+         * value will return the current skip value.
+         *
+         * @method $skip
+         * @param {Number} [skip] The index of the first result to retrieve
+         * @return {PreparedQueryOptions|Number} PreparedQueryOptions object or the current $skip value.
+         */
     PreparedQueryOptions.prototype.$skip = function(skip) {
         if (arguments.length === 0) {
             return this.options.$skip || null;
@@ -2429,13 +2429,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Sets orderBy string. Passing a null order by value will clear the order by option. Negating the value will return
-     * the current order by value.
-     *
-     * @method $orderBy
-     * @param {String} [orderBy] The orderBy string used to retrieve the results in a sorted order.
-     * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $orderby value.
-     */
+         * Sets orderBy string. Passing a null order by value will clear the order by option. Negating the value will return
+         * the current order by value.
+         *
+         * @method $orderBy
+         * @param {String} [orderBy] The orderBy string used to retrieve the results in a sorted order.
+         * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $orderby value.
+         */
     PreparedQueryOptions.prototype.$orderBy = function(orderBy) {
         if (arguments.length === 0) {
             return this.options.$orderby || null;
@@ -2449,13 +2449,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Sets expand string. Passing a null expand value will clear the expand option. Negating the value will return the
-     * current expand value.
-     *
-     * @method $expand
-     * @param {String | Array} [foreignKey] The foreignKey to expand when retrieving the results.
-     * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $expand value.
-     */
+         * Sets expand string. Passing a null expand value will clear the expand option. Negating the value will return the
+         * current expand value.
+         *
+         * @method $expand
+         * @param {String | Array} [foreignKey] The foreignKey to expand when retrieving the results.
+         * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $expand value.
+         */
     PreparedQueryOptions.prototype.$expand = function(foreignKey) {
         if (arguments.length === 0) {
             return this.options.$expand || null;
@@ -2471,13 +2471,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Sets select string. Passing a null select value will clear the select option. Negating the value will return the
-     * current select value.
-     *
-     * @method $select
-     * @param {String | Array} [property] A single property name or array of property names to select.
-     * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $select value.
-     */
+         * Sets select string. Passing a null select value will clear the select option. Negating the value will return the
+         * current select value.
+         *
+         * @method $select
+         * @param {String | Array} [property] A single property name or array of property names to select.
+         * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $select value.
+         */
     PreparedQueryOptions.prototype.$select = function(property) {
         if (arguments.length === 0) {
             return this.options.$select || null;
@@ -2493,13 +2493,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Enables or disables inline count. Passing a null inline count value will clear the inline count option. Negating
-     * the value will return the current inline count value: "allpages" or null.
-     *
-     * @method $inlineCount
-     * @param {Boolean} [enable=true] Flag to enable or disable inline count.
-     * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $inlinecount value.
-     */
+         * Enables or disables inline count. Passing a null inline count value will clear the inline count option. Negating
+         * the value will return the current inline count value: "allpages" or null.
+         *
+         * @method $inlineCount
+         * @param {Boolean} [enable=true] Flag to enable or disable inline count.
+         * @return {PreparedQueryOptions|String} PreparedQueryOptions object or the current $inlinecount value.
+         */
     PreparedQueryOptions.prototype.$inlineCount = function(enable) {
         if (arguments.length === 0) {
             return this.options.$inlinecount || null;
@@ -2512,13 +2512,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Sets the filter option. Include the Predicate class to assist in building complex filter clauses.
-     * Passing a null filter value will clear the filter option. Negating the value will return the current filter value.
-     *
-     * @method $filter
-     * @param {String | Predicate} [filter] The filter clause to use when retrieving the results.
-     * @return {PreparedQueryOptions|Predicate} PreparedQueryOptions object or the current $filter predicate.
-     */
+         * Sets the filter option. Include the Predicate class to assist in building complex filter clauses.
+         * Passing a null filter value will clear the filter option. Negating the value will return the current filter value.
+         *
+         * @method $filter
+         * @param {String | Predicate} [filter] The filter clause to use when retrieving the results.
+         * @return {PreparedQueryOptions|Predicate} PreparedQueryOptions object or the current $filter predicate.
+         */
     PreparedQueryOptions.prototype.$filter = function(filter) {
         if (arguments.length === 0) {
             return this.options.$filter || null;
@@ -2534,14 +2534,14 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Sets a custom query option parameter. Passing a null value will clear the filter. Negating the value will return
-     * the current custom filter value.
-     *
-     * @method custom
-     * @param {String} optionName The name of the option. Must not start with '$'.
-     * @param {String|Number|Boolean} [value] The string value of the option.
-     * @return {PreparedQueryOptions} PreparedQueryOptions object or the current custom filter value.
-     */
+         * Sets a custom query option parameter. Passing a null value will clear the filter. Negating the value will return
+         * the current custom filter value.
+         *
+         * @method custom
+         * @param {String} optionName The name of the option. Must not start with '$'.
+         * @param {String|Number|Boolean} [value] The string value of the option.
+         * @return {PreparedQueryOptions} PreparedQueryOptions object or the current custom filter value.
+         */
     PreparedQueryOptions.prototype.custom = function(optionName, value) {
         if (arguments.length === 1) {
             return this.options[optionName] || null;
@@ -2555,13 +2555,13 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Extend existing query with options from another query. Only the original query will be modified. Any
-     * matching options will be overridden in the original query.
-     *
-     * @method extend
-     * @param {PreparedQueryOptions} preparedQueryOptions The prepared query objects with the properties to be added.
-     * @return {PreparedQueryOptions} PreparedQueryOptions object.
-     */
+         * Extend existing query with options from another query. Only the original query will be modified. Any
+         * matching options will be overridden in the original query.
+         *
+         * @method extend
+         * @param {PreparedQueryOptions} preparedQueryOptions The prepared query objects with the properties to be added.
+         * @return {PreparedQueryOptions} PreparedQueryOptions object.
+         */
     PreparedQueryOptions.prototype.extend = function(preparedQueryOptions) {
         var key;
         for (key in preparedQueryOptions.options) {
@@ -2572,12 +2572,12 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return this;
     };
     /**
-     * Builds and returns a URL parameter string based on the query options.
-     *
-     * @method parseOptions
-     * @returns {String}
-     * @example '$top=25&$skip=0'
-     */
+         * Builds and returns a URL parameter string based on the query options.
+         *
+         * @method parseOptions
+         * @returns {String}
+         * @example '$top=25&$skip=0'
+         */
     PreparedQueryOptions.prototype.parseOptions = function() {
         var parameters = "";
         var appendSeparator = function() {
@@ -2597,12 +2597,12 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return parameters;
     };
     /**
-     * Class method to create a new PreparedQueryOptions object from a simple object
-     *
-     * @method fromObject
-     * @param {Object} object the object to build from
-     * @returns {PreparedQueryOptions}
-     */
+         * Class method to create a new PreparedQueryOptions object from a simple object
+         *
+         * @method fromObject
+         * @param {Object} object the object to build from
+         * @returns {PreparedQueryOptions}
+         */
     PreparedQueryOptions.fromObject = function(object) {
         var preparedQueryOptions = new PreparedQueryOptions();
         var property;
@@ -2670,23 +2670,23 @@ angular.module("recall").provider("recall", [ function() {
         }
         /*------------------------------ Alias methods exposed in the recall service -------------------------------*/
         /**
-         * Get an array of the defined Models.
-         * @returns {Entity[]} The models
-         */
+             * Get an array of the defined Models.
+             * @returns {Entity[]} The models
+             */
         service.getModels = baseModelService.getModels;
         /**
-         * Gets a defined model by its name
-         * @param {String} modelName
-         * @returns {Entity} The model or null if the model is not found
-         */
+             * Gets a defined model by its name
+             * @param {String} modelName
+             * @returns {Entity} The model or null if the model is not found
+             */
         service.getModel = baseModelService.getModel;
         /**
-         * Creates a model based on a definition.
-         * @param {Object} modelDefinition The definition of the model including fields and associations
-         * @param {Object} [localAdapter] The adapter that is used to perform the CRUD actions locally
-         * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
-         * @returns {Entity} The model
-         */
+             * Creates a model based on a definition.
+             * @param {Object} modelDefinition The definition of the model including fields and associations
+             * @param {Object} [localAdapter] The adapter that is used to perform the CRUD actions locally
+             * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
+             * @returns {Entity} The model
+             */
         service.defineModel = baseModelService.defineModel;
         return service;
     } ];
@@ -2695,13 +2695,13 @@ angular.module("recall").provider("recall", [ function() {
 angular.module("recall").factory("recallSyncHandler", [ "$log", "$q", "recallLocalStorage", "recallPredicate", "recallPreparedQueryOptions", function($log, $q, localStorage, Predicate, PreparedQueryOptions) {
     var syncHandler = {};
     /**
-     * Represents the result of a sync operation
-     * @param {Array} sent An array of entities sent to the remote adapter
-     * @param {Array} returned An array of data objects returned from the remote adapter
-     * @param {Number} totalProcessed The total number of entities processed in the sync operation
-     * @param {String} status The operation's status message
-     * @constructor
-     */
+         * Represents the result of a sync operation
+         * @param {Array} sent An array of entities sent to the remote adapter
+         * @param {Array} returned An array of data objects returned from the remote adapter
+         * @param {Number} totalProcessed The total number of entities processed in the sync operation
+         * @param {String} status The operation's status message
+         * @constructor
+         */
     var SyncResult = function(sent, returned, totalProcessed, status) {
         this.sent = sent;
         this.returned = returned;
@@ -2709,25 +2709,25 @@ angular.module("recall").factory("recallSyncHandler", [ "$log", "$q", "recallLoc
         this.status = status;
     };
     /**
-     * Retrieves the last sync time for a given model in ISO format
-     * @param {Object} Model The model initiating the sync (the sync time is stored per model)
-     * @returns {String} The last sync date in ISO format
-     */
+         * Retrieves the last sync time for a given model in ISO format
+         * @param {Object} Model The model initiating the sync (the sync time is stored per model)
+         * @returns {String} The last sync date in ISO format
+         */
     syncHandler.getLastSyncTime = function(Model) {
         return localStorage.get(localStorage.keys.LAST_SYNC, Model.modelName);
     };
     /**
-     * Updates the last sync time for a model
-     * @param {Object} Model The model initiating the sync
-     */
+         * Updates the last sync time for a model
+         * @param {Object} Model The model initiating the sync
+         */
     syncHandler.updateLastSyncTimeToNow = function(Model) {
         localStorage.set(localStorage.keys.LAST_SYNC, new Date().toISOString(), Model.modelName);
     };
     /**
-     * Validates the model to see if it is able to synchronize.
-     * @param {Object} Model The model initiating the sync
-     * @returns {Boolean|SyncResult} Returns true if valid or a SyncResult if not valid
-     */
+         * Validates the model to see if it is able to synchronize.
+         * @param {Object} Model The model initiating the sync
+         * @returns {Boolean|SyncResult} Returns true if valid or a SyncResult if not valid
+         */
     syncHandler.validateModel = function(Model) {
         if (!Model.localAdapter || !Model.remoteAdapter) {
             return new SyncResult([], [], 0, "Remote or Local Adapter not Set");
@@ -2741,32 +2741,32 @@ angular.module("recall").factory("recallSyncHandler", [ "$log", "$q", "recallLoc
         return true;
     };
     /**
-     * Sends data from the local adapter to the remote adapter to update.
-     * @param {Object} Model The model initiating the sync
-     * @param {Array} data An array of objects to send to the remote adapter to sync
-     * @returns {promise}
-     */
+         * Sends data from the local adapter to the remote adapter to update.
+         * @param {Object} Model The model initiating the sync
+         * @param {Array} data An array of objects to send to the remote adapter to sync
+         * @returns {promise}
+         */
     syncHandler.sendSyncRequestData = function(Model, data) {
         var lastSync = this.getLastSyncTime(Model);
         return Model.remoteAdapter.synchronize(Model, data, lastSync);
     };
     /**
-     * Processes the data sent back from the remote adapter. This will update/create/delete records in the local
-     * adapter
-     * @param {Object} Model The model initiating the sync
-     * @param {Array} data An array of data objects to update/create/delete
-     * @returns {promise}
-     */
+         * Processes the data sent back from the remote adapter. This will update/create/delete records in the local
+         * adapter
+         * @param {Object} Model The model initiating the sync
+         * @param {Array} data An array of data objects to update/create/delete
+         * @returns {promise}
+         */
     syncHandler.processSyncResponseData = function(Model, data) {
         var lastSync = this.getLastSyncTime(Model);
         return Model.localAdapter.synchronize(Model, data, lastSync);
     };
     /**
-     * Initializes a sync request
-     * @param {Object} Model The model initiating the sync
-     * @param {Array} data An array of local entities to send to the remote adapter to sync
-     * @returns {promise}
-     */
+         * Initializes a sync request
+         * @param {Object} Model The model initiating the sync
+         * @param {Array} data An array of local entities to send to the remote adapter to sync
+         * @returns {promise}
+         */
     syncHandler.processSyncRequest = function(Model, data) {
         var dfd = $q.defer();
         var result;
@@ -2805,12 +2805,12 @@ angular.module("recall").factory("recallSyncHandler", [ "$log", "$q", "recallLoc
         return dfd.promise;
     };
     /**
-     * Initializes a sync at the model level. This will look for all local entities that have been modified since
-     * the last sync time and send them to the remote adapter to be synchronized. The remote adapter should respond
-     * with an Array of Model entities that need to be updated locally.
-     * @param {Object} Model The model initiating the sync
-     * @returns {promise}
-     */
+         * Initializes a sync at the model level. This will look for all local entities that have been modified since
+         * the last sync time and send them to the remote adapter to be synchronized. The remote adapter should respond
+         * with an Array of Model entities that need to be updated locally.
+         * @param {Object} Model The model initiating the sync
+         * @returns {promise}
+         */
     syncHandler.model = function(Model) {
         var dfd = $q.defer();
         var result;
@@ -2844,13 +2844,13 @@ angular.module("recall").factory("recallSyncHandler", [ "$log", "$q", "recallLoc
         return dfd.promise;
     };
     /**
-     * Initializes a sync at the entity level. This will only send the single entity (in an array) to the remote
-     * adapter to be synchronized (regardless of the lastModified time). The remote adapter should respond with an
-     * Array of Model entities that need to be updated locally.
-     * @param {Object} Model The model initiating the sync
-     * @param {Object} entity The entity to send to the remote adapter for synchronization
-     * @returns {promise}
-     */
+         * Initializes a sync at the entity level. This will only send the single entity (in an array) to the remote
+         * adapter to be synchronized (regardless of the lastModified time). The remote adapter should respond with an
+         * Array of Model entities that need to be updated locally.
+         * @param {Object} Model The model initiating the sync
+         * @param {Object} entity The entity to send to the remote adapter for synchronization
+         * @returns {promise}
+         */
     syncHandler.entity = function(Model, entity) {
         $log.debug("Sync Handler: Starting Entity Sync");
         return syncHandler.processSyncRequest(Model, [ entity ]);
