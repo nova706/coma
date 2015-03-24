@@ -1,10 +1,10 @@
-angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapter', [
+angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDBAdapter', [
     function () {
 
         var providerConfig = {};
 
         // Sets the name of the IndexedDB database to use
-        providerConfig.dbName = 'coma';
+        providerConfig.dbName = 'recall';
         this.setDbName = function (dbName) {
             providerConfig.dbName = dbName;
             return this;
@@ -47,10 +47,10 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
             '$log',
             '$q',
             '$window',
-            'coma',
-            'comaAdapterResponse',
+            'recall',
+            'recallAdapterResponse',
 
-            function ($log, $q, $window, coma, AdapterResponse) {
+            function ($log, $q, $window, recall, AdapterResponse) {
 
                 var adapter = {};
                 var db;
@@ -64,7 +64,7 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     var field;
                     var indexName;
                     var objectStore;
-                    var models = coma.getModels();
+                    var models = recall.getModels();
                     for (i = 0; i < models.length; i++) {
                         model = models[i];
 

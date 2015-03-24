@@ -1,5 +1,5 @@
-angular.module('coma').factory('comaPreparedQueryOptions', [
-    'comaPredicate',
+angular.module('recall').factory('recallPreparedQueryOptions', [
+    'recallPredicate',
 
     function (Predicate) {
         /*

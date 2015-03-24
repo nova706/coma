@@ -1,4 +1,4 @@
-angular.module('coma').factory('comaPredicate', [
+angular.module('recall').factory('recallPredicate', [
     function () {
         /*
          * BASED ON:

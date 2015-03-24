@@ -1,10 +1,10 @@
 /**
- * Demo Controller to show usage of Coma functionality
+ * Demo Controller to show usage of Recall functionality
  */
-angular.module('comaDemo').controller('RootCtrl', [
+angular.module('recallDemo').controller('RootCtrl', [
     '$scope',
     'Person',
-    'comaPreparedQueryOptions',
+    'recallPreparedQueryOptions',
 
     function ($scope, Person, PreparedQueryOptions) {
 

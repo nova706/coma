@@ -1,4 +1,4 @@
-angular.module('coma').factory('comaLocalStorage', [
+angular.module('recall').factory('recallLocalStorage', [
     function () {
 
         /**

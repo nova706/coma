@@ -1,12 +1,12 @@
 /*globals describe, beforeEach, module, inject, it, should*/
 describe("Predicate", function () {
 
-    beforeEach(module('coma'));
+    beforeEach(module('recall'));
 
     var Predicate;
 
-    beforeEach(inject(function (_comaPredicate_) {
-        Predicate = _comaPredicate_;
+    beforeEach(inject(function (recallPredicate) {
+        Predicate = recallPredicate;
     }));
 
     var predicate;

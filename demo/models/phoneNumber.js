@@ -1,11 +1,11 @@
 /**
  * The PhoneNumber model is used to demo association handling in entities.
  */
-angular.module('comaDemo').factory('PhoneNumber', [
-    'coma',
+angular.module('recallDemo').factory('PhoneNumber', [
+    'recall',
 
-    function (coma) {
-        return coma.defineModel({
+    function (recall) {
+        return recall.defineModel({
             name: "phoneNumber",
             dataSourceName: "phonenumbers",
             fields: {

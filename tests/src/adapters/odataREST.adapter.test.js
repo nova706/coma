@@ -1,7 +1,7 @@
 /*globals describe, beforeEach, afterEach, module, inject, it, should*/
 describe("ODataRESTAdapter", function () {
 
-    beforeEach(module('coma.adapter.oDataREST'));
+    beforeEach(module('recall.adapter.oDataREST'));
 
     var adapter;
     var $httpBackend;
@@ -15,8 +15,8 @@ describe("ODataRESTAdapter", function () {
     };
     var endpoint = '/api/' + model.dataSourceName;
 
-    beforeEach(inject(function (comaODataRESTAdapter) {
-        adapter = comaODataRESTAdapter;
+    beforeEach(inject(function (recallODataRESTAdapter) {
+        adapter = recallODataRESTAdapter;
     }));
 
     beforeEach(inject(function (_$httpBackend_, _$rootScope_) {

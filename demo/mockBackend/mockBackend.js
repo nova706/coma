@@ -3,13 +3,13 @@
  * acts as a rest server in order to demoing local <-> remote synchronization.
  */
 
-angular.module('comaDemo').config(['$provide', function ($provide) {
+angular.module('recallDemo').config(['$provide', function ($provide) {
     $provide.decorator('$httpBackend', angular.mock.e2e.$httpBackendDecorator);
 }]);
 
-angular.module('comaDemo').run([
+angular.module('recallDemo').run([
     '$httpBackend',
-    'comaPredicate',
+    'recallPredicate',
 
     function ($httpBackend, Predicate) {
 

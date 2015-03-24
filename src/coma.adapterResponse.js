@@ -1,4 +1,4 @@
-angular.module('coma').factory("comaAdapterResponse", [
+angular.module('recall').factory("recallAdapterResponse", [
     function () {
 
         /**

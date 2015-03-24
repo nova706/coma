@@ -1,27 +1,27 @@
 /**
- * Define the Angular Module and configure Coma
+ * Define the Angular Module and configure Recall
  */
-angular.module('comaDemo', ['coma', 'coma.adapter.indexedDB', 'coma.adapter.oDataREST']).config([
-    'comaProvider',
-    'comaIndexedDBAdapterProvider',
-    'comaODataRESTAdapterProvider',
+angular.module('recallDemo', ['recall', 'recall.adapter.indexedDB', 'recall.adapter.oDataREST']).config([
+    'recallProvider',
+    'recallIndexedDBAdapterProvider',
+    'recallODataRESTAdapterProvider',
 
-    function (comaProvider, comaIndexedDBAdapterProvider, comaODataRESTAdapterProvider) {
+    function (recallProvider, recallIndexedDBAdapterProvider, recallODataRESTAdapterProvider) {
 
         // Specify both local and remote adapters to enable synchronization
-        comaProvider.setLocalAdapter('comaIndexedDBAdapter');
-        comaProvider.setRemoteAdapter('comaODataRESTAdapter');
+        recallProvider.setLocalAdapter('recallIndexedDBAdapter');
+        recallProvider.setRemoteAdapter('recallODataRESTAdapter');
 
          // Set last modified and deleted fields to enable synchronization
-        comaProvider.setLastModifiedFieldName('lastModified');
-        comaProvider.setDeletedFieldName('deleted');
+        recallProvider.setLastModifiedFieldName('lastModified');
+        recallProvider.setDeletedFieldName('deleted');
 
         // Setup the IndexedDB Adapter and initialize it
-        comaIndexedDBAdapterProvider.setDbName("comaDemo");
-        comaIndexedDBAdapterProvider.setDbVersion(1);
-        comaIndexedDBAdapterProvider.dropDatabase();
+        recallIndexedDBAdapterProvider.setDbName("recallDemo");
+        recallIndexedDBAdapterProvider.setDbVersion(1);
+        recallIndexedDBAdapterProvider.dropDatabase();
 
         // Setup the OData REST Adapter
-        comaODataRESTAdapterProvider.setServerAPILocation('/api/');
+        recallODataRESTAdapterProvider.setServerAPILocation('/api/');
     }
 ]);

@@ -1,1 +1,1 @@
-angular.module('coma', []);
+angular.module('recall', []);

@@ -1,12 +1,12 @@
-angular.module('coma').factory("comaBaseModelService", [
+angular.module('recall').factory("recallBaseModelService", [
     '$injector',
     '$log',
     '$q',
-    'comaAssociation',
-    'comaModelField',
-    'comaPreparedQueryOptions',
-    'comaPredicate',
-    'comaSyncHandler',
+    'recallAssociation',
+    'recallModelField',
+    'recallPreparedQueryOptions',
+    'recallPredicate',
+    'recallSyncHandler',
 
     function ($injector,
               $log,
@@ -15,7 +15,7 @@ angular.module('coma').factory("comaBaseModelService", [
               ModelField,
               PreparedQueryOptions,
               Predicate,
-              comaSyncHandler) {
+              syncHandler) {
 
         var baseModelService = {
             dirtyCheckThreshold: 30,
@@ -32,7 +32,7 @@ angular.module('coma').factory("comaBaseModelService", [
         };
 
         // Convenience class for logging.
-        var ComaModel = function (model) {
+        var RecallModel = function (model) {
             angular.extend(this, model);
         };
 
@@ -433,7 +433,7 @@ angular.module('coma').factory("comaBaseModelService", [
 
                 var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
 
-                return adapter.findOne(new ComaModel(Entity), pk, queryOptions).then(function (response) {
+                return adapter.findOne(new RecallModel(Entity), pk, queryOptions).then(function (response) {
                     var result = Entity.transformResult(response.data);
                     var entity = new Entity(result, true, adapter);
                     $log.debug("BaseModelService: FindOne", new Response(entity), response, queryOptions);
@@ -453,7 +453,7 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.find = function (queryOptions, remote) {
                 var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
 
-                return adapter.find(new ComaModel(Entity), queryOptions).then(function (response) {
+                return adapter.find(new RecallModel(Entity), queryOptions).then(function (response) {
                     var results = [];
                     var i;
                     for (i = 0; i < response.data.length; i++) {
@@ -484,7 +484,7 @@ angular.module('coma').factory("comaBaseModelService", [
                 }
 
                 var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
-                return adapter.remove(new ComaModel(Entity), pk);
+                return adapter.remove(new RecallModel(Entity), pk);
             };
 
             /**
@@ -492,7 +492,7 @@ angular.module('coma').factory("comaBaseModelService", [
              * @returns {promise}
              */
             Entity.synchronize = function () {
-                return comaSyncHandler.model(Entity);
+                return syncHandler.model(Entity);
             };
 
             /**
@@ -500,7 +500,7 @@ angular.module('coma').factory("comaBaseModelService", [
              * @returns {promise}
              */
             Entity.prototype.$sync = function () {
-                return comaSyncHandler.entity(Entity, this);
+                return syncHandler.entity(Entity, this);
             };
 
             /**
@@ -611,7 +611,7 @@ angular.module('coma').factory("comaBaseModelService", [
                         return $q.reject("aborted");
                     }
 
-                    return adapter.update(new ComaModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
+                    return adapter.update(new RecallModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
                         var result = Entity.transformResult(response.data);
                         Entity.extendFromRawObject(self, result);
                         updateSavedState(self, true);
@@ -633,7 +633,7 @@ angular.module('coma').factory("comaBaseModelService", [
                     return $q.reject("aborted");
                 }
 
-                return adapter.create(new ComaModel(Entity), itemToSave).then(function (response) {
+                return adapter.create(new RecallModel(Entity), itemToSave).then(function (response) {
                     var result = Entity.transformResult(response.data);
                     Entity.extendFromRawObject(self, result);
                     updateSavedState(self, true);
@@ -656,7 +656,7 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.prototype.$remove = function (remote) {
                 if (this[Entity.primaryKeyFieldName]) {
                     var adapter = (remote === true && remoteAdapter) ? remoteAdapter : this.$entity.adapter;
-                    return adapter.remove(new ComaModel(Entity), this[Entity.primaryKeyFieldName]);
+                    return adapter.remove(new RecallModel(Entity), this[Entity.primaryKeyFieldName]);
                 }
                 $log.error('BaseModelService: $remove', 'The primary key was not found');
                 return $q.reject("The primary key was not found.");

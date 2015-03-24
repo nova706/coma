@@ -1,14 +1,14 @@
 /*globals describe, beforeEach, module, inject, it, should*/
 describe("PreparedQueryOptions", function () {
 
-    beforeEach(module('coma'));
+    beforeEach(module('recall'));
 
     var PreparedQueryOptions;
     var Predicate;
 
-    beforeEach(inject(function (_comaPreparedQueryOptions_, _comaPredicate_) {
-        PreparedQueryOptions = _comaPreparedQueryOptions_;
-        Predicate = _comaPredicate_;
+    beforeEach(inject(function (recallPreparedQueryOptions, recallPredicate) {
+        PreparedQueryOptions = recallPreparedQueryOptions;
+        Predicate = recallPredicate;
     }));
 
     var preparedQueryOptions;

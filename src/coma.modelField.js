@@ -1,4 +1,4 @@
-angular.module('coma').factory("comaModelField", [
+angular.module('recall').factory("recallModelField", [
     '$log',
 
     function ($log) {

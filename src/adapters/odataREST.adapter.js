@@ -1,4 +1,4 @@
-angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapter', [
+angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataRESTAdapter', [
     function () {
 
         var providerConfig = {};
@@ -31,7 +31,7 @@ angular.module('coma.adapter.oDataREST', ['coma']).provider('comaODataRESTAdapte
             '$http',
             '$log',
             '$q',
-            'comaAdapterResponse',
+            'recallAdapterResponse',
 
             function ($http,
                       $log,

@@ -1,7 +1,7 @@
 /*globals describe, beforeEach, module, inject, it, should*/
 describe("IndexedDBAdapter", function () {
 
-    beforeEach(module('coma.adapter.indexedDB'));
+    beforeEach(module('recall.adapter.indexedDB'));
 
     var adapter;
     var $rootScope;
@@ -26,8 +26,8 @@ describe("IndexedDBAdapter", function () {
         $timeout = _$timeout_;
     }));
 
-    beforeEach(inject(function (comaIndexedDBAdapter, $window) {
-        adapter = comaIndexedDBAdapter;
+    beforeEach(inject(function (recallIndexedDBAdapter, $window) {
+        adapter = recallIndexedDBAdapter;
         mockIndexedDB = window.MockIndexedDB($timeout);
         if ($window.indexedDB) {
             angular.extend($window.indexedDB, mockIndexedDB);

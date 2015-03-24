@@ -1,13 +1,13 @@
 /*globals describe, beforeEach, module, inject, it, should*/
 describe("BaseModelService", function () {
 
-    beforeEach(module('coma'));
+    beforeEach(module('recall'));
 
     var baseModelService;
     var testAdapter = {};
 
-    beforeEach(inject(function (comaBaseModelService) {
-        baseModelService = comaBaseModelService;
+    beforeEach(inject(function (recallBaseModelService) {
+        baseModelService = recallBaseModelService;
 
         testAdapter = {
             create: function () { return null; },

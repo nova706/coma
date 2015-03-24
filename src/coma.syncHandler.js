@@ -1,11 +1,11 @@
-angular.module('coma').factory('comaSyncHandler', [
+angular.module('recall').factory('recallSyncHandler', [
     '$log',
     '$q',
-    'comaLocalStorage',
-    'comaPredicate',
-    'comaPreparedQueryOptions',
+    'recallLocalStorage',
+    'recallPredicate',
+    'recallPreparedQueryOptions',
 
-    function ($log, $q, comaLocalStorage, Predicate, PreparedQueryOptions) {
+    function ($log, $q, localStorage, Predicate, PreparedQueryOptions) {
         var syncHandler = {};
 
         /**
@@ -29,7 +29,7 @@ angular.module('coma').factory('comaSyncHandler', [
          * @returns {String} The last sync date in ISO format
          */
         syncHandler.getLastSyncTime = function (Model) {
-            return comaLocalStorage.get(comaLocalStorage.keys.LAST_SYNC, Model.modelName);
+            return localStorage.get(localStorage.keys.LAST_SYNC, Model.modelName);
         };
 
         /**
@@ -37,7 +37,7 @@ angular.module('coma').factory('comaSyncHandler', [
          * @param {Object} Model The model initiating the sync
          */
         syncHandler.updateLastSyncTimeToNow = function (Model) {
-            comaLocalStorage.set(comaLocalStorage.keys.LAST_SYNC, new Date().toISOString(), Model.modelName);
+            localStorage.set(localStorage.keys.LAST_SYNC, new Date().toISOString(), Model.modelName);
         };
 
         /**

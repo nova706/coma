@@ -1,11 +1,11 @@
 /**
  * The Person model is used to demo local <-> remote sync.
  */
-angular.module('comaDemo').factory('Person', [
-    'coma',
+angular.module('recallDemo').factory('Person', [
+    'recall',
 
-    function (coma) {
-        return coma.defineModel({
+    function (recall) {
+        return recall.defineModel({
             name: "person",
             dataSourceName: "people",
             fields: {

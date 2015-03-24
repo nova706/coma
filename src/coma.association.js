@@ -1,8 +1,8 @@
-angular.module('coma').factory("comaAssociation", [
+angular.module('recall').factory("recallAssociation", [
     '$log',
     '$q',
-    'comaPredicate',
-    'comaPreparedQueryOptions',
+    'recallPredicate',
+    'recallPreparedQueryOptions',
 
     function ($log, $q, Predicate, PreparedQueryOptions) {
 

@@ -1,8 +1,8 @@
 /**
- * The comaProvider is the entry point for common configuration options. Specific adapters may have their own
+ * The recallProvider is the entry point for common configuration options. Specific adapters may have their own
  * configuration options
  */
-angular.module('coma').provider('coma', [
+angular.module('recall').provider('recall', [
     function () {
         var config = {};
 
@@ -42,38 +42,38 @@ angular.module('coma').provider('coma', [
             return this;
         };
 
-        this.$get = ['comaBaseModelService', function (comaBaseModelService) {
+        this.$get = ['recallBaseModelService', function (baseModelService) {
             var service = {
                 config: config
             };
 
             // To Avoid circular dependency, add the config to the baseModelService
-            comaBaseModelService.setDirtyCheckThreshold(config.dirtyCheckThreshold);
-            comaBaseModelService.setLastModifiedFieldName(config.lastModifiedFieldName);
-            comaBaseModelService.setDeletedFieldName(config.deletedFieldName);
+            baseModelService.setDirtyCheckThreshold(config.dirtyCheckThreshold);
+            baseModelService.setLastModifiedFieldName(config.lastModifiedFieldName);
+            baseModelService.setDeletedFieldName(config.deletedFieldName);
 
             // Set the adapters
             if (config.localAdapter) {
-                comaBaseModelService.setLocalAdapter(config.localAdapter);
+                baseModelService.setLocalAdapter(config.localAdapter);
             }
             if (config.remoteAdapter) {
-                comaBaseModelService.setRemoteAdapter(config.remoteAdapter);
+                baseModelService.setRemoteAdapter(config.remoteAdapter);
             }
 
-            /*------------------------------ Alias methods exposed in the coma service -------------------------------*/
+            /*------------------------------ Alias methods exposed in the recall service -------------------------------*/
 
             /**
              * Get an array of the defined Models.
              * @returns {Entity[]} The models
              */
-            service.getModels = comaBaseModelService.getModels;
+            service.getModels = baseModelService.getModels;
 
             /**
              * Gets a defined model by its name
              * @param {String} modelName
              * @returns {Entity} The model or null if the model is not found
              */
-            service.getModel = comaBaseModelService.getModel;
+            service.getModel = baseModelService.getModel;
 
             /**
              * Creates a model based on a definition.
@@ -82,7 +82,7 @@ angular.module('coma').provider('coma', [
              * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
              * @returns {Entity} The model
              */
-            service.defineModel = comaBaseModelService.defineModel;
+            service.defineModel = baseModelService.defineModel;
 
             return service;
         }];
