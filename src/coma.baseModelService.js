@@ -504,55 +504,27 @@ angular.module('coma').factory("comaBaseModelService", [
             };
 
             /**
+             * Retrieves the Primary Key for the Entity.
+             * @returns {String|Number} The Primary Key
+             */
+            Entity.prototype.$getPrimaryKey = function () {
+                return this[Entity.primaryKeyFieldName];
+            };
+
+            /**
              * Expands a given association on an Entity
              *
              * @param {String} associationName The alias of the association to expand
              * @returns {promise}
              */
             Entity.prototype.$expand = function (associationName) {
-                var dfd = $q.defer();
-                var self = this;
                 var association = Entity.getAssociationByAlias(associationName);
-                if (association) {
-                    var Model = association.getModel();
-                    if (Model && association.type === 'hasOne' && self[association.mappedBy] !== undefined) {
-                        self.$entity.adapter.findOne(new ComaModel(Model), self[association.mappedBy]).then(function (response) {
-                            self[association.alias] = Model.getRawModelObject(response.data);
-                            self.$entity.storedState[association.alias] = Model.getRawModelObject(response.data);
-                            $log.debug("BaseModelService: $expand", association.type, associationName, self, response);
-                            dfd.resolve();
-                        }, function (e) {
-                            $log.error("BaseModelService: $expand", association.type, associationName, self, e);
-                            dfd.reject(e);
-                        });
-                    } else if (Model && association.type === 'hasMany') {
 
-                        var predicate = new Predicate(association.mappedBy).equals(self[Entity.primaryKeyFieldName]);
-                        var queryOptions = new PreparedQueryOptions().$filter(predicate);
-
-                        self.$entity.adapter.find(new ComaModel(Model), queryOptions).then(function (response) {
-                            var base = [];
-                            var stored = [];
-                            var i;
-                            for (i = 0; i < response.data.length; i++) {
-                                base.push(Model.getRawModelObject(response.data[i]));
-                                stored.push(Model.getRawModelObject(response.data[i]));
-                            }
-                            self[association.alias] = base;
-                            self.$entity.storedState[association.alias] = stored;
-                            $log.debug("BaseModelService: $expand", association.type, associationName, self, response);
-                            dfd.resolve();
-                        }, function (e) {
-                            $log.error("BaseModelService: $expand", association.type, associationName, self, e);
-                            dfd.reject(e);
-                        });
-                    } else {
-                        dfd.resolve();
-                    }
-                } else {
-                    dfd.resolve();
+                if (!association) {
+                    return $q.reject('BaseModelService: $expand could not find the association to expand.', associationName, this);
                 }
-                return dfd.promise;
+
+                return association.expand(this, this.$entity.adapter === remoteAdapter);
             };
 
             /**
@@ -613,10 +585,21 @@ angular.module('coma').factory("comaBaseModelService", [
             Entity.prototype.$save = function (remote) {
                 var self = this;
                 var itemToSave = Entity.preSave(this);
+                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : self.$entity.adapter;
 
                 this.$entity.saveInProgress = true;
 
-                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : self.$entity.adapter;
+                var updateSavedState = function (entity, succeeded) {
+                    if (succeeded !== false) {
+                        self.$storeState();
+                        self.$entity.persisted = true;
+                        self.$entity.saveInProgress = false;
+                        self.$entity.adapter = adapter;
+                    } else {
+                        self.$reset();
+                        self.$entity.saveInProgress = false;
+                    }
+                };
 
                 // The model exists in the DB
                 if (self.$entity.persisted && itemToSave[Entity.primaryKeyFieldName]) {
@@ -631,15 +614,11 @@ angular.module('coma').factory("comaBaseModelService", [
                     return adapter.update(new ComaModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
                         var result = Entity.transformResult(response.data);
                         Entity.extendFromRawObject(self, result);
-                        self.$storeState();
-                        self.$entity.persisted = true;
-                        self.$entity.saveInProgress = false;
-                        self.$entity.adapter = adapter;
+                        updateSavedState(self, true);
                         $log.debug("BaseModelService: $save: update", self, itemToSave, response);
                         return self;
                     }, function (e) {
-                        self.$reset();
-                        self.$entity.saveInProgress = false;
+                        updateSavedState(self, false);
                         $log.error("BaseModelService: $save: update", self, itemToSave, e);
                         return $q.reject(e);
                     });
@@ -657,15 +636,11 @@ angular.module('coma').factory("comaBaseModelService", [
                 return adapter.create(new ComaModel(Entity), itemToSave).then(function (response) {
                     var result = Entity.transformResult(response.data);
                     Entity.extendFromRawObject(self, result);
-                    self.$storeState();
-                    self.$entity.persisted = true;
-                    self.$entity.saveInProgress = false;
-                    self.$entity.adapter = adapter;
+                    updateSavedState(self, true);
                     $log.debug("BaseModelService: $save: create", self, itemToSave, response);
                     return self;
                 }, function (e) {
-                    self.$reset();
-                    self.$entity.saveInProgress = false;
+                    updateSavedState(self, false);
                     $log.error("BaseModelService: $save: create", self, itemToSave, e);
                     return $q.reject(e);
                 });

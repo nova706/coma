@@ -124,195 +124,6 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
-                // Given an expand path, finds all the DB tables required for the transaction
-                // Recursive
-                var getTablesFromExpandPath = function (theModel, expandPath) {
-                    var tables = [];
-                    var pathsToExpand = expandPath.split('.');
-                    var toExpand = pathsToExpand[0];
-                    if (toExpand) {
-                        var association = theModel.getAssociationByAlias(toExpand);
-                        var model = association.getModel();
-                        if (association && model) {
-                            tables.push(model.dataSourceName);
-                            if (pathsToExpand.length > 1) {
-                                tables = tables.concat(getTablesFromExpandPath(model, pathsToExpand.substring(pathsToExpand.indexOf('.') + 1)));
-                            }
-                        }
-                    }
-                    return tables;
-                };
-
-                // Given queryOptions, finds all the DB tables required for the transaction
-                var getTablesFromQueryOptions = function (theModel, queryOptions) {
-                    var tables = [];
-                    var $expand;
-
-                    if (queryOptions) {
-                        $expand = queryOptions.$expand();
-                    }
-                    if ($expand) {
-                        var paths = $expand.split(',');
-                        var i;
-                        for (i = 0; i < paths.length; i++) {
-                            tables = tables.concat(getTablesFromExpandPath(theModel, paths[i]));
-                        }
-                    }
-                    return tables;
-                };
-
-                // Expands a Model association given an expand path
-                // Recursive
-                var expandPath = function (result, theModel, pathToExpand, tx) {
-                    var dfd = $q.defer();
-                    var pathsToExpand = pathToExpand.split('.');
-                    var toExpand = pathsToExpand[0];
-
-                    if (toExpand) {
-                        var association = theModel.getAssociationByAlias(toExpand);
-                        var model = association.getModel();
-                        if (association && model) {
-                            var store = tx.objectStore(model.dataSourceName);
-                            var req;
-                            if (association.type === 'hasOne' && result[association.mappedBy] !== undefined) {
-                                req = store.get(result[association.mappedBy]);
-
-                                req.onsuccess = function () {
-                                    result[association.alias] = req.result;
-                                    if (pathsToExpand.length > 1) {
-                                        expandPath(req.result, theModel, pathToExpand.substring(pathToExpand.indexOf('.') + 1), tx).then(function () {
-                                            dfd.resolve();
-                                        }, function (e) {
-                                            dfd.reject(e);
-                                        });
-                                    } else {
-                                        dfd.resolve();
-                                    }
-                                };
-                                req.onerror = function () {
-                                    dfd.reject(this.error);
-                                };
-                            } else if (association.type === 'hasMany') {
-                                var index = store.index(association.mappedBy);
-                                req = index.openCursor();
-                                var results = [];
-
-                                req.onsuccess = function (event) {
-                                    var cursor = event.target.result;
-                                    if (cursor) {
-                                        if (cursor.key === result[theModel.primaryKeyFieldName]) {
-                                            results.push(cursor.value);
-                                        }
-                                        cursor.continue();
-                                    } else {
-                                        result[association.alias] = results;
-                                        if (pathsToExpand.length > 1) {
-                                            var i;
-                                            var promises = [];
-                                            for (i = 0; i < results.length; i++) {
-                                                promises.push(expandPath(results[i], theModel, pathToExpand.substring(pathToExpand.indexOf('.') + 1), tx));
-                                            }
-                                            $q.all(promises).then(function () {
-                                                dfd.resolve();
-                                            }, function (e) {
-                                                dfd.reject(e);
-                                            });
-                                        } else {
-                                            dfd.resolve();
-                                        }
-                                    }
-                                };
-                                req.onerror = function () {
-                                    dfd.reject(this.error);
-                                };
-                            }
-                        } else {
-                            dfd.resolve();
-                        }
-                    } else {
-                        dfd.resolve();
-                    }
-                    return dfd.promise;
-                };
-
-                // Expands all Model associations defined in the query options $expand clause
-                var performExpand = function (result, theModel, queryOptions, tx) {
-                    var dfd = $q.defer();
-                    var $expand;
-                    var promises = [];
-
-                    if (queryOptions) {
-                        $expand = queryOptions.$expand();
-                    }
-                    if ($expand) {
-                        var paths = $expand.split(',');
-                        var i;
-                        for (i = 0; i < paths.length; i++) {
-                            promises.push(expandPath(result, theModel, paths[i], tx));
-                        }
-                        $q.all(promises).then(function () {
-                            dfd.resolve();
-                        }, function (e) {
-                            $log.error('IndexedDBAdapter: PerformExpand', e, $expand, result);
-                            dfd.reject(e);
-                        });
-                    } else {
-                        dfd.resolve();
-                    }
-
-                    return dfd.promise;
-                };
-
-                // Checks if a result matches a predicate filter
-                var resultMatchesFilters = function (result, predicate) {
-                    return predicate.test(result);
-                };
-
-                // Applies a filter predicate to a set of results and returns an array of the matching results
-                var applyFilter = function (results, filterPredicate) {
-                    if (filterPredicate && results) {
-                        results.filter(function (a) {
-                            return resultMatchesFilters(a, filterPredicate);
-                        });
-                    }
-                    return results;
-                };
-
-                // Sorts the data given an $orderBy clause in query options
-                var applyOrderBy = function (results, queryOptions) {
-                    if (!queryOptions) {
-                        return results;
-                    }
-                    var orderBy = queryOptions.$orderBy();
-                    if (orderBy) {
-                        var property = orderBy.split(' ')[0];
-                        var direction = orderBy.split(' ')[1] || "";
-                        results.sort(function (a, b) {
-                            if (a[property] > b[property]) {
-                                return (direction.toLowerCase() === 'desc') ? -1 : 1;
-                            }
-                            if (b[property] > a[property]) {
-                                return (direction.toLowerCase() === 'desc') ? 1 : -1;
-                            }
-                            return 0;
-                        });
-                    }
-                    return results;
-                };
-
-                // Applies paging to a set of results and returns a sliced array of results
-                var applyPaging = function (results, queryOptions) {
-                    if (!queryOptions) {
-                        return results;
-                    }
-                    var top = queryOptions.$top();
-                    var skip = queryOptions.$skip();
-                    if (top > 0 && skip >= 0) {
-                        results = results.slice(skip, skip + top);
-                    }
-                    return results;
-                };
-
                 /**
                  * Creates a new Entity
                  * @param {Object} theModel The model of the entity to create
@@ -590,6 +401,49 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
+                /**
+                 * Takes an Array of entities and creates/updates/deletes them
+                 * @param {Object} theModel The model of the entities to synchronize
+                 * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+                adapter.synchronize = function (theModel, dataToSync) {
+                    var dfd = $q.defer();
+                    var response;
+
+                    var buildError = function (e) {
+                        response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
+                        $log.error('IndexedDBAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
+                        return response;
+                    };
+
+                    connect().then(function () {
+                        var tables = [theModel.dataSourceName];
+                        var tx = db.transaction(tables, "readwrite");
+
+                        var i;
+                        var promises = [];
+                        for (i = 0; i < dataToSync.length; i++) {
+                            if (dataToSync[i][theModel.deletedFieldName]) {
+                                promises.push(hardRemove(theModel, tx, dataToSync[i][theModel.primaryKeyFieldName]));
+                            } else {
+                                promises.push(createOrUpdate(theModel, tx, dataToSync[i]));
+                            }
+                        }
+
+                        $q.all(promises).then(function (results) {
+                            response = new AdapterResponse(results, results.length, AdapterResponse.OK);
+                            $log.debug('IndexedDBAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
+                            dfd.resolve(response);
+                        }, function (e) {
+                            dfd.reject(buildError(e));
+                        });
+                    }, function (e) {
+                        dfd.reject(buildError(e));
+                    });
+                    return dfd.promise;
+                };
+
                 // Creates a new Entity if not found or updates the existing one. Used in synchronization.
                 var createOrUpdate = function (theModel, tx, modelInstance) {
                     var dfd = $q.defer();
@@ -642,47 +496,210 @@ angular.module('coma.adapter.indexedDB', ['coma']).provider('comaIndexedDBAdapte
                     return dfd.promise;
                 };
 
-                /**
-                 * Takes an Array of entities and creates/updates/deletes them
-                 * @param {Object} theModel The model of the entities to synchronize
-                 * @param {Array} dataToSync An array of objects to create/update/delete
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-                adapter.synchronize = function (theModel, dataToSync) {
-                    var dfd = $q.defer();
-                    var response;
-
-                    var buildError = function (e) {
-                        response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                        $log.error('IndexedDBAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
-                        return response;
-                    };
-
-                    connect().then(function () {
-                        var tables = [theModel.dataSourceName];
-                        var tx = db.transaction(tables, "readwrite");
-
-                        var i;
-                        var promises = [];
-                        for (i = 0; i < dataToSync.length; i++) {
-                            if (dataToSync[i][theModel.deletedFieldName]) {
-                                promises.push(hardRemove(theModel, tx, dataToSync[i][theModel.primaryKeyFieldName]));
-                            } else {
-                                promises.push(createOrUpdate(theModel, tx, dataToSync[i]));
+                // Given an expand path, finds all the DB tables required for the transaction
+                // Recursive
+                var getTablesFromExpandPath = function (theModel, expandPath) {
+                    var tables = [];
+                    var pathsToExpand = expandPath.split('.');
+                    var toExpand = pathsToExpand[0];
+                    if (toExpand) {
+                        var association = theModel.getAssociationByAlias(toExpand);
+                        var model = association.getModel();
+                        if (association && model) {
+                            tables.push(model.dataSourceName);
+                            if (pathsToExpand.length > 1) {
+                                tables = tables.concat(getTablesFromExpandPath(model, pathsToExpand.substring(pathsToExpand.indexOf('.') + 1)));
                             }
                         }
+                    }
+                    return tables;
+                };
 
-                        $q.all(promises).then(function (results) {
-                            response = new AdapterResponse(results, results.length, AdapterResponse.OK);
-                            $log.debug('IndexedDBAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
-                            dfd.resolve(response);
-                        }, function (e) {
-                            dfd.reject(buildError(e));
-                        });
-                    }, function (e) {
-                        dfd.reject(buildError(e));
-                    });
+                // Given queryOptions, finds all the DB tables required for the transaction
+                var getTablesFromQueryOptions = function (theModel, queryOptions) {
+                    var tables = [];
+                    var $expand;
+
+                    if (queryOptions) {
+                        $expand = queryOptions.$expand();
+                    }
+                    if ($expand) {
+                        var paths = $expand.split(',');
+                        var i;
+                        for (i = 0; i < paths.length; i++) {
+                            tables = tables.concat(getTablesFromExpandPath(theModel, paths[i]));
+                        }
+                    }
+                    return tables;
+                };
+
+                // Expands a has one model association
+                var expandHasOne = function (model, result, association, tx, pathsToExpand) {
+                    var dfd = $q.defer();
+                    var store = tx.objectStore(model.dataSourceName);
+                    var pathToExpand = pathsToExpand.join('.');
+                    var req = store.get(result[association.mappedBy]);
+
+                    req.onsuccess = function () {
+                        result[association.alias] = req.result;
+                        if (pathsToExpand.length > 1) {
+                            expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf('.') + 1), tx).then(function () {
+                                dfd.resolve();
+                            }, function (e) {
+                                dfd.reject(e);
+                            });
+                        } else {
+                            dfd.resolve();
+                        }
+                    };
+                    req.onerror = function () {
+                        dfd.reject(this.error);
+                    };
+
                     return dfd.promise;
+                };
+
+                // Expands a has many model association
+                var expandHasMany = function (model, result, association, tx, pathsToExpand) {
+                    var dfd = $q.defer();
+                    var store = tx.objectStore(model.dataSourceName);
+                    var pathToExpand = pathsToExpand.join('.');
+                    var index = store.index(association.mappedBy);
+                    var req = index.openCursor();
+                    var results = [];
+
+                    req.onsuccess = function (event) {
+                        var cursor = event.target.result;
+                        if (cursor) {
+                            if (cursor.key === result[model.primaryKeyFieldName]) {
+                                results.push(cursor.value);
+                            }
+                            cursor.continue();
+                        } else {
+                            result[association.alias] = results;
+                            if (pathsToExpand.length > 1) {
+                                var i;
+                                var promises = [];
+                                for (i = 0; i < results.length; i++) {
+                                    promises.push(expandPath(results[i], model, pathToExpand.substring(pathToExpand.indexOf('.') + 1), tx));
+                                }
+                                $q.all(promises).then(function () {
+                                    dfd.resolve();
+                                }, function (e) {
+                                    dfd.reject(e);
+                                });
+                            } else {
+                                dfd.resolve();
+                            }
+                        }
+                    };
+                    req.onerror = function () {
+                        dfd.reject(this.error);
+                    };
+
+                    return dfd.promise;
+                };
+
+                // Expands a Model association given an expand path
+                // Recursive
+                var expandPath = function (result, theModel, pathToExpand, tx) {
+                    var pathsToExpand = pathToExpand.split('.');
+                    var toExpand = pathsToExpand[0];
+
+                    if (toExpand) {
+                        var association = theModel.getAssociationByAlias(toExpand);
+                        var model = association.getModel();
+                        if (association && model) {
+                            if (association.type === 'hasOne') {
+                                return expandHasOne(model, result, association, tx, pathsToExpand);
+                            } else if (association.type === 'hasMany') {
+                                return expandHasMany(model, result, association, tx, pathsToExpand);
+                            }
+                        }
+                    }
+
+                    // There is nothing left to expand, just resolve.
+                    var dfd = $q.defer();
+                    dfd.resolve();
+                    return dfd.promise;
+                };
+
+                // Expands all Model associations defined in the query options $expand clause
+                var performExpand = function (result, theModel, queryOptions, tx) {
+                    var dfd = $q.defer();
+                    var $expand;
+                    var promises = [];
+
+                    if (queryOptions) {
+                        $expand = queryOptions.$expand();
+                    }
+                    if ($expand) {
+                        var paths = $expand.split(',');
+                        var i;
+                        for (i = 0; i < paths.length; i++) {
+                            promises.push(expandPath(result, theModel, paths[i], tx));
+                        }
+                        $q.all(promises).then(function () {
+                            dfd.resolve();
+                        }, function (e) {
+                            $log.error('IndexedDBAdapter: PerformExpand', e, $expand, result);
+                            dfd.reject(e);
+                        });
+                    } else {
+                        dfd.resolve();
+                    }
+
+                    return dfd.promise;
+                };
+
+                // Checks if a result matches a predicate filter
+                var resultMatchesFilters = function (result, predicate) {
+                    return predicate.test(result);
+                };
+
+                // Applies a filter predicate to a set of results and returns an array of the matching results
+                var applyFilter = function (results, filterPredicate) {
+                    if (filterPredicate && results) {
+                        results.filter(function (a) {
+                            return resultMatchesFilters(a, filterPredicate);
+                        });
+                    }
+                    return results;
+                };
+
+                // Sorts the data given an $orderBy clause in query options
+                var applyOrderBy = function (results, queryOptions) {
+                    if (!queryOptions) {
+                        return results;
+                    }
+                    var orderBy = queryOptions.$orderBy();
+                    if (orderBy) {
+                        var property = orderBy.split(' ')[0];
+                        var direction = orderBy.split(' ')[1] || "";
+                        results.sort(function (a, b) {
+                            if (a[property] > b[property]) {
+                                return (direction.toLowerCase() === 'desc') ? -1 : 1;
+                            }
+                            if (b[property] > a[property]) {
+                                return (direction.toLowerCase() === 'desc') ? 1 : -1;
+                            }
+                            return 0;
+                        });
+                    }
+                    return results;
+                };
+
+                // Applies paging to a set of results and returns a sliced array of results
+                var applyPaging = function (results, queryOptions) {
+                    if (!queryOptions) {
+                        return results;
+                    }
+                    var top = queryOptions.$top();
+                    var skip = queryOptions.$skip();
+                    if (top > 0 && skip >= 0) {
+                        results = results.slice(skip, skip + top);
+                    }
+                    return results;
                 };
 
                 return adapter;
