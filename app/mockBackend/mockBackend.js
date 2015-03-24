@@ -18,7 +18,7 @@ angular.module('recallDemo').run([
         };
 
         var resources = [
-            { endpoint: 'people', dataPath: 'mockBackend/mockPeople.json' }
+            { endpoint: 'people', dataPath: 'app/mockBackend/mockPeople.json' }
         ];
 
         var generateGuid = function () {
