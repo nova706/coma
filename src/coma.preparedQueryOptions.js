@@ -3,6 +3,7 @@ angular.module('coma').factory('comaPreparedQueryOptions', [
 
     function (Predicate) {
         /*
+         * BASED ON:
          * PreparedQueryOptions
          * version: 1.1.2
          * author: David Hamilton
