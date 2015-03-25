@@ -35,6 +35,25 @@ angular.module('recall').factory('recallPreparedQueryOptions', [
         };
 
         /**
+         * Used in Sync Adapters to perform the CRUD operation against the Master instead of the Slave.
+         *
+         * @method preferMaster
+         * @param {Boolean} [preferMaster=false] Whether the SyncAdapter should prefer the slave or master.
+         * @return {PreparedQueryOptions|Boolean} PreparedQueryOptions object or the current preferMaster value.
+         */
+        PreparedQueryOptions.prototype.preferMaster = function (preferMaster) {
+            if (arguments.length === 0) {
+                return this.options.preferMaster || null;
+            }
+            if (preferMaster === null) {
+                delete this.options.preferMaster;
+                return this;
+            }
+            this.options.preferMaster = preferMaster === true;
+            return this;
+        };
+
+        /**
          * Sets the number of results to retrieve. Passing a null top value will clear the top option. Negating the value
          * will return the current top value.
          *

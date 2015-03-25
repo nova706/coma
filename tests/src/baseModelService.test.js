@@ -17,7 +17,7 @@ describe("BaseModelService", function () {
             remove: function () { return null; }
         };
 
-        baseModelService.setLocalAdapter(testAdapter);
+        baseModelService.setAdapter(testAdapter);
     }));
 
     var personModelDefinition = {
@@ -81,17 +81,10 @@ describe("BaseModelService", function () {
         });
     });
 
-    describe("Set Local Adapter", function () {
+    describe("Set Adapter", function () {
         it("Should set the local adapter", function () {
-            baseModelService.setLocalAdapter("test");
-            baseModelService.localAdapter.should.equal("test");
-        });
-    });
-
-    describe("Set Remote Adapter", function () {
-        it("Should set the remote adapter", function () {
-            baseModelService.setRemoteAdapter("test");
-            baseModelService.remoteAdapter.should.equal("test");
+            baseModelService.setAdapter("test");
+            baseModelService.adapter.should.equal("test");
         });
     });
 

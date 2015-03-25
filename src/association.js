@@ -35,7 +35,7 @@ angular.module('recall').factory("recallAssociation", [
             }
         };
 
-        Association.prototype.expand = function (entity, remote) {
+        Association.prototype.expand = function (entity) {
             var dfd = $q.defer();
             var self = this;
             var Model = self.getModel();
@@ -44,11 +44,9 @@ angular.module('recall').factory("recallAssociation", [
                 return $q.reject('Association: Expand could not find the association\'s Model');
             }
 
-            var adapter = (remote === true && Model.remoteAdapter) ? Model.remoteAdapter : Model.localAdapter;
-
             if (self.type === 'hasOne') {
 
-                adapter.findOne(Model, entity[self.mappedBy]).then(function (response) {
+                Model.adapter.findOne(Model, entity[self.mappedBy]).then(function (response) {
                     entity[self.alias] = Model.getRawModelObject(response.data);
                     entity.$entity.storedState[self.alias] = Model.getRawModelObject(response.data);
                     $log.debug("Association: Expand", self.type, self.alias, entity, response);
@@ -63,7 +61,7 @@ angular.module('recall').factory("recallAssociation", [
                 var predicate = new Predicate(self.mappedBy).equals(entity.$getPrimaryKey());
                 var queryOptions = new PreparedQueryOptions().$filter(predicate);
 
-                adapter.find(Model, queryOptions).then(function (response) {
+                Model.adapter.find(Model, queryOptions).then(function (response) {
                     var base = [];
                     var stored = [];
                     var i;

@@ -4,25 +4,18 @@ angular.module('recall').factory("recallBaseModelService", [
     '$q',
     'recallAssociation',
     'recallModelField',
-    'recallPreparedQueryOptions',
-    'recallPredicate',
-    'recallSyncHandler',
 
     function ($injector,
               $log,
               $q,
               Association,
-              ModelField,
-              PreparedQueryOptions,
-              Predicate,
-              syncHandler) {
+              ModelField) {
 
         var baseModelService = {
             dirtyCheckThreshold: 30,
             lastModifiedFieldName: "",
             deletedFieldName: "",
-            localAdapter: {},
-            remoteAdapter: {},
+            adapter: {},
             models: {}
         };
 
@@ -74,19 +67,11 @@ angular.module('recall').factory("recallBaseModelService", [
         };
 
         /**
-         * Sets the local adapter to use for retrieving data locally.
+         * Sets the adapter to use for CRUD operations.
          * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
          */
-        baseModelService.setLocalAdapter = function (adapter) {
-            baseModelService.localAdapter = adapter;
-        };
-
-        /**
-         * Sets the default remote adapter to use for retrieving data remotely. This can be overridden by an individual model.
-         * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
-         */
-        baseModelService.setRemoteAdapter = function (adapter) {
-            baseModelService.remoteAdapter = adapter;
+        baseModelService.setAdapter = function (adapter) {
+            baseModelService.adapter = adapter;
         };
 
         /**
@@ -116,27 +101,18 @@ angular.module('recall').factory("recallBaseModelService", [
         /**
          * Creates a model based on a definition.
          * @param {Object} modelDefinition The definition of the model including fields and associations
-         * @param {Object} [localAdapter] The adapter that is used to perform the CRUD actions locally
-         * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
+         * @param {Object} [adapter] The adapter that is used to perform the CRUD actions
          * @returns {Entity} The model
          */
-        baseModelService.defineModel = function (modelDefinition, localAdapter, remoteAdapter) {
-            localAdapter = localAdapter || baseModelService.localAdapter;
-            remoteAdapter = remoteAdapter || baseModelService.remoteAdapter;
+        baseModelService.defineModel = function (modelDefinition, adapter) {
+            adapter = adapter || baseModelService.adapter;
 
             // If the adapter is a string, assume it is the name of the adapter factory and inject it
-            localAdapter = (typeof localAdapter === 'string') ? $injector.get(localAdapter) : localAdapter;
-            remoteAdapter = (typeof remoteAdapter === 'string') ? $injector.get(remoteAdapter) : remoteAdapter;
+            adapter = (typeof adapter === 'string') ? $injector.get(adapter) : adapter;
 
-            // If there were no adapters set, then return out as the model can not be used.
-            if (!remoteAdapter && !localAdapter) {
+            // If there was no adapter set, then return out as the model can not be used.
+            if (!adapter) {
                 return null;
-            }
-
-            // If there is a remoteAdapter but no local adapter, use the remote as the default.
-            if (remoteAdapter && !localAdapter) {
-                localAdapter = remoteAdapter;
-                remoteAdapter = null;
             }
 
             // TODO: Validated the model definition
@@ -156,14 +132,13 @@ angular.module('recall').factory("recallBaseModelService", [
              * @param {Object} object The object to construct the entity from
              * @param {Boolean} [persisted = false] Set to true if this model was created from an object that came
              *                                         from an adapter.
-             * @param {Object} [adapter=localAdapter] The adapter used to fetch the Entity.
              * @constructor
              */
-            var Entity = function (object, persisted, adapter) {
+            var Entity = function (object, persisted) {
                 Entity.extendFromRawObject(this, object);
 
                 this.$entity = {
-                    adapter: adapter || localAdapter,
+                    adapter: adapter,
                     lastDirtyCheck: new Date().getTime(),
                     lastDirtyState: false,
                     persisted: persisted === true,
@@ -179,8 +154,7 @@ angular.module('recall').factory("recallBaseModelService", [
             Entity.primaryKeyFieldName = null;
             Entity.lastModifiedFieldName = baseModelService.lastModifiedFieldName;
             Entity.deletedFieldName = baseModelService.deletedFieldName;
-            Entity.localAdapter = localAdapter;
-            Entity.remoteAdapter = remoteAdapter;
+            Entity.adapter = adapter;
             Entity.modelName = modelDefinition.name;
             Entity.dataSourceName = modelDefinition.dataSourceName || modelDefinition.name;
 
@@ -422,20 +396,17 @@ angular.module('recall').factory("recallBaseModelService", [
              * @method findOne
              * @param {String} pk The primary key of the model to retrieve
              * @param {Object} [queryOptions] Query options to use for retrieval
-             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise} Resolves with the model
              */
-            Entity.findOne = function (pk, queryOptions, remote) {
+            Entity.findOne = function (pk, queryOptions) {
                 if (!pk) {
                     $log.error('BaseModelService: FindOne', 'The primary key was not supplied');
                     return $q.reject("The primary key was not supplied.");
                 }
 
-                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
-
-                return adapter.findOne(new RecallModel(Entity), pk, queryOptions).then(function (response) {
+                return Entity.adapter.findOne(new RecallModel(Entity), pk, queryOptions).then(function (response) {
                     var result = Entity.transformResult(response.data);
-                    var entity = new Entity(result, true, adapter);
+                    var entity = new Entity(result, true);
                     $log.debug("BaseModelService: FindOne", new Response(entity), response, queryOptions);
                     return entity;
                 }, propagateError);
@@ -447,17 +418,14 @@ angular.module('recall').factory("recallBaseModelService", [
              *
              * @method find
              * @param {Object} [queryOptions] Query options to use for retrieval
-             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise} Resolves with data.results and data.totalCount where results are models
              */
-            Entity.find = function (queryOptions, remote) {
-                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
-
-                return adapter.find(new RecallModel(Entity), queryOptions).then(function (response) {
+            Entity.find = function (queryOptions) {
+                return Entity.adapter.find(new RecallModel(Entity), queryOptions).then(function (response) {
                     var results = [];
                     var i;
                     for (i = 0; i < response.data.length; i++) {
-                        results.push(new Entity(Entity.transformResult(response.data[i]), true, adapter));
+                        results.push(new Entity(Entity.transformResult(response.data[i]), true));
                     }
 
                     var clientResponse = {
@@ -474,33 +442,15 @@ angular.module('recall').factory("recallBaseModelService", [
              *
              * @method remove
              * @param {String} pk The primary key of the model to remove
-             * @param {Boolean} [remote=false] Use the remote adapter if supplied
+             * @param {Object} [queryOptions] Query options
              * @returns {promise}
              */
-            Entity.remove = function (pk, remote) {
+            Entity.remove = function (pk, queryOptions) {
                 if (!pk) {
                     $log.error('BaseModelService: Remove', 'The primary key was not supplied');
                     return $q.reject("The primary key was not supplied.");
                 }
-
-                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : localAdapter;
-                return adapter.remove(new RecallModel(Entity), pk);
-            };
-
-            /**
-             * Synchronizes all modified entities between a local and remote adapter.
-             * @returns {promise}
-             */
-            Entity.synchronize = function () {
-                return syncHandler.model(Entity);
-            };
-
-            /**
-             * Synchronizes a single entity between a local and remote adapter.
-             * @returns {promise}
-             */
-            Entity.prototype.$sync = function () {
-                return syncHandler.entity(Entity, this);
+                return Entity.adapter.remove(new RecallModel(Entity), pk, queryOptions);
             };
 
             /**
@@ -524,7 +474,7 @@ angular.module('recall').factory("recallBaseModelService", [
                     return $q.reject('BaseModelService: $expand could not find the association to expand.', associationName, this);
                 }
 
-                return association.expand(this, this.$entity.adapter === remoteAdapter);
+                return association.expand(this);
             };
 
             /**
@@ -579,13 +529,12 @@ angular.module('recall').factory("recallBaseModelService", [
              * the model if it does not exist.
              *
              * @method $save
-             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
+             * @param {PreparedQueryOptions} queryOptions
              * @returns {promise} Resolves with the model
              */
-            Entity.prototype.$save = function (remote) {
+            Entity.prototype.$save = function (queryOptions) {
                 var self = this;
                 var itemToSave = Entity.preSave(this);
-                var adapter = (remote === true && remoteAdapter) ? remoteAdapter : self.$entity.adapter;
 
                 this.$entity.saveInProgress = true;
 
@@ -594,7 +543,7 @@ angular.module('recall').factory("recallBaseModelService", [
                         self.$storeState();
                         self.$entity.persisted = true;
                         self.$entity.saveInProgress = false;
-                        self.$entity.adapter = adapter;
+                        self.$entity.adapter = Entity.adapter;
                     } else {
                         self.$reset();
                         self.$entity.saveInProgress = false;
@@ -611,7 +560,8 @@ angular.module('recall').factory("recallBaseModelService", [
                         return $q.reject("aborted");
                     }
 
-                    return adapter.update(new RecallModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function (response) {
+                    var pk = itemToSave[Entity.primaryKeyFieldName];
+                    return Entity.adapter.update(new RecallModel(Entity), pk, itemToSave, queryOptions).then(function (response) {
                         var result = Entity.transformResult(response.data);
                         Entity.extendFromRawObject(self, result);
                         updateSavedState(self, true);
@@ -633,7 +583,7 @@ angular.module('recall').factory("recallBaseModelService", [
                     return $q.reject("aborted");
                 }
 
-                return adapter.create(new RecallModel(Entity), itemToSave).then(function (response) {
+                return Entity.adapter.create(new RecallModel(Entity), itemToSave, queryOptions).then(function (response) {
                     var result = Entity.transformResult(response.data);
                     Entity.extendFromRawObject(self, result);
                     updateSavedState(self, true);
@@ -650,13 +600,12 @@ angular.module('recall').factory("recallBaseModelService", [
              * Removes the model from the adapter.
              *
              * @method $remove
-             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
+             * @param {PreparedQueryOptions} queryOptions
              * @returns {promise}
              */
-            Entity.prototype.$remove = function (remote) {
+            Entity.prototype.$remove = function (queryOptions) {
                 if (this[Entity.primaryKeyFieldName]) {
-                    var adapter = (remote === true && remoteAdapter) ? remoteAdapter : this.$entity.adapter;
-                    return adapter.remove(new RecallModel(Entity), this[Entity.primaryKeyFieldName]);
+                    return Entity.adapter.remove(new RecallModel(Entity), this[Entity.primaryKeyFieldName], queryOptions);
                 }
                 $log.error('BaseModelService: $remove', 'The primary key was not found');
                 return $q.reject("The primary key was not found.");
@@ -759,6 +708,11 @@ angular.module('recall').factory("recallBaseModelService", [
                 $log.debug("BaseModelService: $reset", this[Entity.primaryKeyFieldName], changedProperties);
                 return changedProperties;
             };
+
+            // Call the model validation on the adapter after all Entity properties and methods are set.
+            if (typeof adapter.modelValidationHook === 'function' && !adapter.modelValidationHook(Entity)) {
+                return null;
+            }
 
             baseModelService.models[Entity.modelName] = Entity;
 

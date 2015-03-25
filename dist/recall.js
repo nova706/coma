@@ -1,4 +1,4 @@
-/*! recallTests 23-03-2015 */
+/*! recallTests 24-03-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
@@ -857,6 +857,261 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
     } ];
 } ]);
 
+angular.module("recall.adapter.sync", [ "recall" ]).provider("recallSyncAdapter", [ function() {
+    var providerConfig = {};
+    // Sets the master adapter
+    providerConfig.masterAdapter = "";
+    this.setMaster = function(masterAdapter) {
+        providerConfig.masterAdapter = masterAdapter;
+        return this;
+    };
+    // Sets the slave adapter
+    providerConfig.slaveAdapter = "";
+    this.setSlave = function(slaveAdapter) {
+        providerConfig.slaveAdapter = slaveAdapter;
+        return this;
+    };
+    this.$get = [ "$injector", "$log", "$q", "recallAdapterResponse", "recallLocalStorage", "recallPredicate", "recallPreparedQueryOptions", function($injector, $log, $q, AdapterResponse, localStorage, Predicate, PreparedQueryOptions) {
+        var adapter = {};
+        /**
+                 * Validates the Model during creation
+                 * @param {Object} theModel
+                 * @returns {Boolean} True if the model passes validation
+                 */
+        adapter.modelValidationHook = function(theModel) {
+            var master = getMaster();
+            var slave = getSlave();
+            if (!master) {
+                $log.error("SyncAdapter: Master Adapter not Set", this, theModel);
+                return false;
+            }
+            if (!slave) {
+                $log.error("SyncAdapter: Slave Adapter not Set", this, theModel);
+                return false;
+            }
+            if (typeof master.synchronize !== "function") {
+                $log.error("SyncAdapter: Synchronize handler not found on the master adapter", this, theModel);
+                return false;
+            }
+            if (typeof slave.synchronize !== "function") {
+                $log.error("SyncAdapter: Synchronize handler not found on the slave adapter", this, theModel);
+                return false;
+            }
+            if (typeof master.modelValidationHook === "function" && !master.modelValidationHook(theModel)) {
+                return false;
+            }
+            if (typeof slave.modelValidationHook === "function" && !slave.modelValidationHook(theModel)) {
+                return false;
+            }
+            return true;
+        };
+        /**
+                 * Creates a new Entity on the Slave and attempts to sync to the Master
+                 * @param {Object} theModel The model of the entity to create
+                 * @param {Object} modelInstance The entity to create
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for preferMaster
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+        adapter.create = function(theModel, modelInstance, queryOptions) {
+            if (queryOptions && queryOptions.preferMaster() === true) {
+                return getMaster().create(theModel, modelInstance);
+            } else {
+                return getSlave().create(theModel, modelInstance);
+            }
+        };
+        /**
+                 * Finds a single entity given a primary key on the Slave
+                 * @param {Object} theModel The model of the entity to find
+                 * @param {String|Number} pk The primary key of the entity to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand and preferMaster
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+        adapter.findOne = function(theModel, pk, queryOptions) {
+            var response;
+            if (!pk) {
+                response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
+                $log.error("SyncAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
+                return $q.reject(response);
+            }
+            if (queryOptions && queryOptions.preferMaster() === true) {
+                return getMaster().findOne(theModel, pk, queryOptions);
+            } else {
+                return getSlave().findOne(theModel, pk, queryOptions);
+            }
+        };
+        /**
+                 * Finds a set of Model entities on the Slave
+                 * @param {Object} theModel The model of the entities to find
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+        adapter.find = function(theModel, queryOptions) {
+            if (queryOptions && queryOptions.preferMaster() === true) {
+                return getMaster().find(theModel, queryOptions);
+            } else {
+                return getSlave().find(theModel, queryOptions);
+            }
+        };
+        /**
+                 * Updates a Model entity on the Slave given the primary key of the entity. Attempts to sync to the Master.
+                 * @param {Object} theModel The model of the entity to update
+                 * @param {String|Number} pk The primary key of the entity
+                 * @param {Object} modelInstance The entity to update
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for preferMaster
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+        adapter.update = function(theModel, pk, modelInstance, queryOptions) {
+            var response;
+            if (!pk) {
+                response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
+                $log.error("SyncAdapter: Update " + theModel.modelName, response, modelInstance);
+                return $q.reject(response);
+            }
+            if (queryOptions && queryOptions.preferMaster() === true) {
+                return getMaster().update(theModel, pk, modelInstance);
+            } else {
+                return getSlave().update(theModel, pk, modelInstance);
+            }
+        };
+        /**
+                 * Removes an Entity from the Slave given the primary key of the entity to remove. Attempts to sync to the Master.
+                 * @param {Object} theModel The model of the entity to remove
+                 * @param {String|Number} pk The primary key of the entity
+                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for preferMaster
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+        adapter.remove = function(theModel, pk, queryOptions) {
+            var response;
+            if (!pk) {
+                response = new AdapterResponse("No Primary Key was supplied", 0, AdapterResponse.BAD_REQUEST);
+                $log.error("SyncAdapter: Remove " + theModel.modelName, response, pk);
+                return $q.reject(response);
+            }
+            if (queryOptions && queryOptions.preferMaster() === true) {
+                return getMaster().remove(theModel, pk);
+            } else {
+                return getSlave().remove(theModel, pk);
+            }
+        };
+        /**
+                 * Manually Syncs the Slave and Master adapters
+                 * @param {Object} theModel The model of the entities to synchronize
+                 * @returns {promise} Resolved with an AdapterResponse
+                 */
+        adapter.synchronize = function(theModel) {
+            return processSyncRequest(theModel);
+        };
+        var getAdapter = function(adapter) {
+            return typeof adapter === "string" ? $injector.get(adapter) : adapter;
+        };
+        var getMaster = function() {
+            return getAdapter(providerConfig.masterAdapter);
+        };
+        var getSlave = function() {
+            return getAdapter(providerConfig.slaveAdapter);
+        };
+        /**
+                 * Represents the result of a sync operation
+                 * @param {Array} sent An array of entities sent to the remote adapter
+                 * @param {Array} returned An array of data objects returned from the remote adapter
+                 * @param {Number} totalProcessed The total number of entities processed in the sync operation
+                 * @param {String} status The operation's status message
+                 * @constructor
+                 */
+        var SyncResult = function(sent, returned, totalProcessed, status) {
+            this.sent = sent;
+            this.returned = returned;
+            this.totalProcessed = totalProcessed;
+            this.status = status;
+        };
+        /**
+                 * Retrieves the last sync time for a given model in ISO format
+                 * @param {Object} theModel The model initiating the sync (the sync time is stored per model)
+                 * @returns {String} The last sync date in ISO format
+                 */
+        var getLastSyncTime = function(theModel) {
+            return localStorage.get(localStorage.keys.LAST_SYNC, theModel.modelName);
+        };
+        /**
+                 * Updates the last sync time for a model
+                 * @param {Object} theModel The model initiating the sync
+                 */
+        var updateLastSyncTimeToNow = function(theModel) {
+            localStorage.set(localStorage.keys.LAST_SYNC, new Date().toISOString(), theModel.modelName);
+        };
+        /**
+                 * Sends data from the local adapter to the remote adapter to update.
+                 * @param {Object} theModel The model initiating the sync
+                 * @param {Array} data An array of objects to send to the remote adapter to sync
+                 * @returns {promise}
+                 */
+        var sendSyncRequestData = function(theModel, data) {
+            var lastSync = getLastSyncTime(theModel);
+            return getMaster().synchronize(theModel, data, lastSync);
+        };
+        /**
+                 * Processes the data sent back from the remote adapter. This will update/create/delete records in the local
+                 * adapter
+                 * @param {Object} theModel The model initiating the sync
+                 * @param {Array} data An array of data objects to update/create/delete
+                 * @returns {promise}
+                 */
+        var processSyncResponseData = function(theModel, data) {
+            var lastSync = getLastSyncTime(theModel);
+            return getSlave().synchronize(theModel, data, lastSync);
+        };
+        /**
+                 * Initializes a sync request
+                 * @param {Object} theModel The model initiating the sync
+                 * @returns {promise}
+                 */
+        var processSyncRequest = function(theModel) {
+            var dfd = $q.defer();
+            var result;
+            var syncRequestData = [];
+            var syncResponseData = [];
+            var totalItemsProcessed = 0;
+            var handleError = function(e) {
+                result = new SyncResult(syncRequestData, syncResponseData, totalItemsProcessed, e);
+                $log.error("SyncAdapter: " + theModel.modelName, result);
+                dfd.reject(result);
+            };
+            var handleComplete = function() {
+                result = new SyncResult(syncRequestData, syncResponseData, totalItemsProcessed, "Complete");
+                $log.debug("SyncAdapter: " + theModel.modelName, "Sync Complete", result);
+                updateLastSyncTimeToNow(theModel);
+                dfd.resolve(result);
+            };
+            $log.debug("SyncAdapter: " + theModel.modelName + " Sync Started");
+            var lastSync = getLastSyncTime(theModel);
+            var queryOptions = new PreparedQueryOptions();
+            if (lastSync) {
+                var predicate = new Predicate("lastModified").greaterThanOrEqualTo(lastSync);
+                queryOptions.$filter(predicate);
+            }
+            getSlave().find(theModel, queryOptions, true).then(function(response) {
+                $log.debug("SyncAdapter: Sending " + response.count + " local item(s) to sync");
+                totalItemsProcessed += response.count;
+                syncRequestData = response.data;
+                return sendSyncRequestData(theModel, response.data);
+            }, handleError).then(function(syncResponse) {
+                // TODO: Handle Conflicts
+                $log.debug("SyncAdapter: Found " + syncResponse.data.length + " remote item(s) to sync");
+                totalItemsProcessed += syncResponse.data.length;
+                syncResponseData = syncResponse.data;
+                if (syncResponse.data.length > 0) {
+                    processSyncResponseData(theModel, syncResponse.data).then(handleComplete, handleError);
+                } else {
+                    // No data from server to sync
+                    handleComplete();
+                }
+            }, handleError);
+            return dfd.promise;
+        };
+        return adapter;
+    } ];
+} ]);
+
 angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPredicate", "recallPreparedQueryOptions", function($log, $q, Predicate, PreparedQueryOptions) {
     /**
          * Association class
@@ -883,16 +1138,15 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
             this.invalid = true;
         }
     };
-    Association.prototype.expand = function(entity, remote) {
+    Association.prototype.expand = function(entity) {
         var dfd = $q.defer();
         var self = this;
         var Model = self.getModel();
         if (!Model) {
             return $q.reject("Association: Expand could not find the association's Model");
         }
-        var adapter = remote === true && Model.remoteAdapter ? Model.remoteAdapter : Model.localAdapter;
         if (self.type === "hasOne") {
-            adapter.findOne(Model, entity[self.mappedBy]).then(function(response) {
+            Model.adapter.findOne(Model, entity[self.mappedBy]).then(function(response) {
                 entity[self.alias] = Model.getRawModelObject(response.data);
                 entity.$entity.storedState[self.alias] = Model.getRawModelObject(response.data);
                 $log.debug("Association: Expand", self.type, self.alias, entity, response);
@@ -904,7 +1158,7 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
         } else if (self.type === "hasMany") {
             var predicate = new Predicate(self.mappedBy).equals(entity.$getPrimaryKey());
             var queryOptions = new PreparedQueryOptions().$filter(predicate);
-            adapter.find(Model, queryOptions).then(function(response) {
+            Model.adapter.find(Model, queryOptions).then(function(response) {
                 var base = [];
                 var stored = [];
                 var i;
@@ -928,13 +1182,12 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
     return Association;
 } ]);
 
-angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log", "$q", "recallAssociation", "recallModelField", "recallPreparedQueryOptions", "recallPredicate", "recallSyncHandler", function($injector, $log, $q, Association, ModelField, PreparedQueryOptions, Predicate, syncHandler) {
+angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log", "$q", "recallAssociation", "recallModelField", function($injector, $log, $q, Association, ModelField) {
     var baseModelService = {
         dirtyCheckThreshold: 30,
         lastModifiedFieldName: "",
         deletedFieldName: "",
-        localAdapter: {},
-        remoteAdapter: {},
+        adapter: {},
         models: {}
     };
     // Bubbles an error promise to the top.
@@ -979,18 +1232,11 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
         baseModelService.deletedFieldName = deletedFieldName;
     };
     /**
-         * Sets the local adapter to use for retrieving data locally.
+         * Sets the adapter to use for CRUD operations.
          * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
          */
-    baseModelService.setLocalAdapter = function(adapter) {
-        baseModelService.localAdapter = adapter;
-    };
-    /**
-         * Sets the default remote adapter to use for retrieving data remotely. This can be overridden by an individual model.
-         * @param {Object|String} adapter The adapter object or the name of the adapter factory to inject.
-         */
-    baseModelService.setRemoteAdapter = function(adapter) {
-        baseModelService.remoteAdapter = adapter;
+    baseModelService.setAdapter = function(adapter) {
+        baseModelService.adapter = adapter;
     };
     /**
          * Get an array of the defined Models.
@@ -1017,24 +1263,16 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
     /**
          * Creates a model based on a definition.
          * @param {Object} modelDefinition The definition of the model including fields and associations
-         * @param {Object} [localAdapter] The adapter that is used to perform the CRUD actions locally
-         * @param {Object} [remoteAdapter] The adapter that is used to perform the CRUD actions remotely
+         * @param {Object} [adapter] The adapter that is used to perform the CRUD actions
          * @returns {Entity} The model
          */
-    baseModelService.defineModel = function(modelDefinition, localAdapter, remoteAdapter) {
-        localAdapter = localAdapter || baseModelService.localAdapter;
-        remoteAdapter = remoteAdapter || baseModelService.remoteAdapter;
+    baseModelService.defineModel = function(modelDefinition, adapter) {
+        adapter = adapter || baseModelService.adapter;
         // If the adapter is a string, assume it is the name of the adapter factory and inject it
-        localAdapter = typeof localAdapter === "string" ? $injector.get(localAdapter) : localAdapter;
-        remoteAdapter = typeof remoteAdapter === "string" ? $injector.get(remoteAdapter) : remoteAdapter;
-        // If there were no adapters set, then return out as the model can not be used.
-        if (!remoteAdapter && !localAdapter) {
+        adapter = typeof adapter === "string" ? $injector.get(adapter) : adapter;
+        // If there was no adapter set, then return out as the model can not be used.
+        if (!adapter) {
             return null;
-        }
-        // If there is a remoteAdapter but no local adapter, use the remote as the default.
-        if (remoteAdapter && !localAdapter) {
-            localAdapter = remoteAdapter;
-            remoteAdapter = null;
         }
         // TODO: Validated the model definition
         if (!modelDefinition || !modelDefinition.name) {
@@ -1051,13 +1289,12 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
              * @param {Object} object The object to construct the entity from
              * @param {Boolean} [persisted = false] Set to true if this model was created from an object that came
              *                                         from an adapter.
-             * @param {Object} [adapter=localAdapter] The adapter used to fetch the Entity.
              * @constructor
              */
-        var Entity = function(object, persisted, adapter) {
+        var Entity = function(object, persisted) {
             Entity.extendFromRawObject(this, object);
             this.$entity = {
-                adapter: adapter || localAdapter,
+                adapter: adapter,
                 lastDirtyCheck: new Date().getTime(),
                 lastDirtyState: false,
                 persisted: persisted === true,
@@ -1071,8 +1308,7 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
         Entity.primaryKeyFieldName = null;
         Entity.lastModifiedFieldName = baseModelService.lastModifiedFieldName;
         Entity.deletedFieldName = baseModelService.deletedFieldName;
-        Entity.localAdapter = localAdapter;
-        Entity.remoteAdapter = remoteAdapter;
+        Entity.adapter = adapter;
         Entity.modelName = modelDefinition.name;
         Entity.dataSourceName = modelDefinition.dataSourceName || modelDefinition.name;
         // Initializes the fields using the common ModelField class
@@ -1296,18 +1532,16 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
              * @method findOne
              * @param {String} pk The primary key of the model to retrieve
              * @param {Object} [queryOptions] Query options to use for retrieval
-             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise} Resolves with the model
              */
-        Entity.findOne = function(pk, queryOptions, remote) {
+        Entity.findOne = function(pk, queryOptions) {
             if (!pk) {
                 $log.error("BaseModelService: FindOne", "The primary key was not supplied");
                 return $q.reject("The primary key was not supplied.");
             }
-            var adapter = remote === true && remoteAdapter ? remoteAdapter : localAdapter;
-            return adapter.findOne(new RecallModel(Entity), pk, queryOptions).then(function(response) {
+            return Entity.adapter.findOne(new RecallModel(Entity), pk, queryOptions).then(function(response) {
                 var result = Entity.transformResult(response.data);
-                var entity = new Entity(result, true, adapter);
+                var entity = new Entity(result, true);
                 $log.debug("BaseModelService: FindOne", new Response(entity), response, queryOptions);
                 return entity;
             }, propagateError);
@@ -1318,16 +1552,14 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
              *
              * @method find
              * @param {Object} [queryOptions] Query options to use for retrieval
-             * @param {Boolean} [remote=false] Use the remote adapter if supplied
              * @returns {promise} Resolves with data.results and data.totalCount where results are models
              */
-        Entity.find = function(queryOptions, remote) {
-            var adapter = remote === true && remoteAdapter ? remoteAdapter : localAdapter;
-            return adapter.find(new RecallModel(Entity), queryOptions).then(function(response) {
+        Entity.find = function(queryOptions) {
+            return Entity.adapter.find(new RecallModel(Entity), queryOptions).then(function(response) {
                 var results = [];
                 var i;
                 for (i = 0; i < response.data.length; i++) {
-                    results.push(new Entity(Entity.transformResult(response.data[i]), true, adapter));
+                    results.push(new Entity(Entity.transformResult(response.data[i]), true));
                 }
                 var clientResponse = {
                     results: results,
@@ -1342,30 +1574,15 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
              *
              * @method remove
              * @param {String} pk The primary key of the model to remove
-             * @param {Boolean} [remote=false] Use the remote adapter if supplied
+             * @param {Object} [queryOptions] Query options
              * @returns {promise}
              */
-        Entity.remove = function(pk, remote) {
+        Entity.remove = function(pk, queryOptions) {
             if (!pk) {
                 $log.error("BaseModelService: Remove", "The primary key was not supplied");
                 return $q.reject("The primary key was not supplied.");
             }
-            var adapter = remote === true && remoteAdapter ? remoteAdapter : localAdapter;
-            return adapter.remove(new RecallModel(Entity), pk);
-        };
-        /**
-             * Synchronizes all modified entities between a local and remote adapter.
-             * @returns {promise}
-             */
-        Entity.synchronize = function() {
-            return syncHandler.model(Entity);
-        };
-        /**
-             * Synchronizes a single entity between a local and remote adapter.
-             * @returns {promise}
-             */
-        Entity.prototype.$sync = function() {
-            return syncHandler.entity(Entity, this);
+            return Entity.adapter.remove(new RecallModel(Entity), pk, queryOptions);
         };
         /**
              * Retrieves the Primary Key for the Entity.
@@ -1385,7 +1602,7 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             if (!association) {
                 return $q.reject("BaseModelService: $expand could not find the association to expand.", associationName, this);
             }
-            return association.expand(this, this.$entity.adapter === remoteAdapter);
+            return association.expand(this);
         };
         /**
              * Validates an entity against the model's field definition.
@@ -1441,20 +1658,19 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
              * the model if it does not exist.
              *
              * @method $save
-             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
+             * @param {PreparedQueryOptions} queryOptions
              * @returns {promise} Resolves with the model
              */
-        Entity.prototype.$save = function(remote) {
+        Entity.prototype.$save = function(queryOptions) {
             var self = this;
             var itemToSave = Entity.preSave(this);
-            var adapter = remote === true && remoteAdapter ? remoteAdapter : self.$entity.adapter;
             this.$entity.saveInProgress = true;
             var updateSavedState = function(entity, succeeded) {
                 if (succeeded !== false) {
                     self.$storeState();
                     self.$entity.persisted = true;
                     self.$entity.saveInProgress = false;
-                    self.$entity.adapter = adapter;
+                    self.$entity.adapter = Entity.adapter;
                 } else {
                     self.$reset();
                     self.$entity.saveInProgress = false;
@@ -1468,7 +1684,8 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
                     self.$reset();
                     return $q.reject("aborted");
                 }
-                return adapter.update(new RecallModel(Entity), itemToSave[Entity.primaryKeyFieldName], itemToSave).then(function(response) {
+                var pk = itemToSave[Entity.primaryKeyFieldName];
+                return Entity.adapter.update(new RecallModel(Entity), pk, itemToSave, queryOptions).then(function(response) {
                     var result = Entity.transformResult(response.data);
                     Entity.extendFromRawObject(self, result);
                     updateSavedState(self, true);
@@ -1487,7 +1704,7 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
                 self.$reset();
                 return $q.reject("aborted");
             }
-            return adapter.create(new RecallModel(Entity), itemToSave).then(function(response) {
+            return Entity.adapter.create(new RecallModel(Entity), itemToSave, queryOptions).then(function(response) {
                 var result = Entity.transformResult(response.data);
                 Entity.extendFromRawObject(self, result);
                 updateSavedState(self, true);
@@ -1503,13 +1720,12 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
              * Removes the model from the adapter.
              *
              * @method $remove
-             * @param {Boolean} [remote] Use the remote adapter if set instead of the Entity's default
+             * @param {PreparedQueryOptions} queryOptions
              * @returns {promise}
              */
-        Entity.prototype.$remove = function(remote) {
+        Entity.prototype.$remove = function(queryOptions) {
             if (this[Entity.primaryKeyFieldName]) {
-                var adapter = remote === true && remoteAdapter ? remoteAdapter : this.$entity.adapter;
-                return adapter.remove(new RecallModel(Entity), this[Entity.primaryKeyFieldName]);
+                return Entity.adapter.remove(new RecallModel(Entity), this[Entity.primaryKeyFieldName], queryOptions);
             }
             $log.error("BaseModelService: $remove", "The primary key was not found");
             return $q.reject("The primary key was not found.");
@@ -1597,6 +1813,10 @@ angular.module("recall").factory("recallBaseModelService", [ "$injector", "$log"
             $log.debug("BaseModelService: $reset", this[Entity.primaryKeyFieldName], changedProperties);
             return changedProperties;
         };
+        // Call the model validation on the adapter after all Entity properties and methods are set.
+        if (typeof adapter.modelValidationHook === "function" && !adapter.modelValidationHook(Entity)) {
+            return null;
+        }
         baseModelService.models[Entity.modelName] = Entity;
         return Entity;
     };
@@ -2389,6 +2609,24 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
         return object && typeof object === "object" && typeof object.parsePredicate === "function";
     };
     /**
+         * Used in Sync Adapters to perform the CRUD operation against the Master instead of the Slave.
+         *
+         * @method preferMaster
+         * @param {Boolean} [preferMaster=false] Whether the SyncAdapter should prefer the slave or master.
+         * @return {PreparedQueryOptions|Boolean} PreparedQueryOptions object or the current preferMaster value.
+         */
+    PreparedQueryOptions.prototype.preferMaster = function(preferMaster) {
+        if (arguments.length === 0) {
+            return this.options.preferMaster || null;
+        }
+        if (preferMaster === null) {
+            delete this.options.preferMaster;
+            return this;
+        }
+        this.options.preferMaster = preferMaster === true;
+        return this;
+    };
+    /**
          * Sets the number of results to retrieve. Passing a null top value will clear the top option. Negating the value
          * will return the current top value.
          *
@@ -2622,16 +2860,10 @@ angular.module("recall").factory("recallPreparedQueryOptions", [ "recallPredicat
  */
 angular.module("recall").provider("recall", [ function() {
     var config = {};
-    // The default local adapter to use unless otherwise specified by the model Definition
-    config.localAdapter = null;
-    this.setLocalAdapter = function(localAdapter) {
-        config.localAdapter = localAdapter;
-        return this;
-    };
-    // The default remote adapter to use unless otherwise specified by the model Definition
-    config.remoteAdapter = null;
-    this.setRemoteAdapter = function(remoteAdapter) {
-        config.remoteAdapter = remoteAdapter;
+    // The default adapter to use unless otherwise specified by the model Definition
+    config.adapter = null;
+    this.setAdapter = function(adapter) {
+        config.adapter = adapter;
         return this;
     };
     // Time in milliseconds to throttle Entity dirty checking. This allows for multiple digest cycles to pass
@@ -2661,12 +2893,9 @@ angular.module("recall").provider("recall", [ function() {
         baseModelService.setDirtyCheckThreshold(config.dirtyCheckThreshold);
         baseModelService.setLastModifiedFieldName(config.lastModifiedFieldName);
         baseModelService.setDeletedFieldName(config.deletedFieldName);
-        // Set the adapters
-        if (config.localAdapter) {
-            baseModelService.setLocalAdapter(config.localAdapter);
-        }
-        if (config.remoteAdapter) {
-            baseModelService.setRemoteAdapter(config.remoteAdapter);
+        // Set the adapter
+        if (config.adapter) {
+            baseModelService.setAdapter(config.adapter);
         }
         /*------------------------------ Alias methods exposed in the recall service -------------------------------*/
         /**
@@ -2690,170 +2919,4 @@ angular.module("recall").provider("recall", [ function() {
         service.defineModel = baseModelService.defineModel;
         return service;
     } ];
-} ]);
-
-angular.module("recall").factory("recallSyncHandler", [ "$log", "$q", "recallLocalStorage", "recallPredicate", "recallPreparedQueryOptions", function($log, $q, localStorage, Predicate, PreparedQueryOptions) {
-    var syncHandler = {};
-    /**
-         * Represents the result of a sync operation
-         * @param {Array} sent An array of entities sent to the remote adapter
-         * @param {Array} returned An array of data objects returned from the remote adapter
-         * @param {Number} totalProcessed The total number of entities processed in the sync operation
-         * @param {String} status The operation's status message
-         * @constructor
-         */
-    var SyncResult = function(sent, returned, totalProcessed, status) {
-        this.sent = sent;
-        this.returned = returned;
-        this.totalProcessed = totalProcessed;
-        this.status = status;
-    };
-    /**
-         * Retrieves the last sync time for a given model in ISO format
-         * @param {Object} Model The model initiating the sync (the sync time is stored per model)
-         * @returns {String} The last sync date in ISO format
-         */
-    syncHandler.getLastSyncTime = function(Model) {
-        return localStorage.get(localStorage.keys.LAST_SYNC, Model.modelName);
-    };
-    /**
-         * Updates the last sync time for a model
-         * @param {Object} Model The model initiating the sync
-         */
-    syncHandler.updateLastSyncTimeToNow = function(Model) {
-        localStorage.set(localStorage.keys.LAST_SYNC, new Date().toISOString(), Model.modelName);
-    };
-    /**
-         * Validates the model to see if it is able to synchronize.
-         * @param {Object} Model The model initiating the sync
-         * @returns {Boolean|SyncResult} Returns true if valid or a SyncResult if not valid
-         */
-    syncHandler.validateModel = function(Model) {
-        if (!Model.localAdapter || !Model.remoteAdapter) {
-            return new SyncResult([], [], 0, "Remote or Local Adapter not Set");
-        }
-        if (typeof Model.remoteAdapter.synchronize !== "function") {
-            return new SyncResult([], [], 0, "Synchronize handler not found on remote adapter");
-        }
-        if (typeof Model.localAdapter.synchronize !== "function") {
-            return new SyncResult([], [], 0, "Synchronize handler not found on local adapter");
-        }
-        return true;
-    };
-    /**
-         * Sends data from the local adapter to the remote adapter to update.
-         * @param {Object} Model The model initiating the sync
-         * @param {Array} data An array of objects to send to the remote adapter to sync
-         * @returns {promise}
-         */
-    syncHandler.sendSyncRequestData = function(Model, data) {
-        var lastSync = this.getLastSyncTime(Model);
-        return Model.remoteAdapter.synchronize(Model, data, lastSync);
-    };
-    /**
-         * Processes the data sent back from the remote adapter. This will update/create/delete records in the local
-         * adapter
-         * @param {Object} Model The model initiating the sync
-         * @param {Array} data An array of data objects to update/create/delete
-         * @returns {promise}
-         */
-    syncHandler.processSyncResponseData = function(Model, data) {
-        var lastSync = this.getLastSyncTime(Model);
-        return Model.localAdapter.synchronize(Model, data, lastSync);
-    };
-    /**
-         * Initializes a sync request
-         * @param {Object} Model The model initiating the sync
-         * @param {Array} data An array of local entities to send to the remote adapter to sync
-         * @returns {promise}
-         */
-    syncHandler.processSyncRequest = function(Model, data) {
-        var dfd = $q.defer();
-        var result;
-        var isValid = syncHandler.validateModel(Model);
-        if (isValid !== true) {
-            isValid.sent = data;
-            $log.error("Sync Handler: " + Model.modelName, isValid);
-            return $q.reject(isValid);
-        }
-        var syncResponseData = [];
-        var totalItemsProcessed = data.length;
-        var handleError = function(e) {
-            result = new SyncResult(data, syncResponseData, totalItemsProcessed, e);
-            $log.error("Sync Handler: " + Model.modelName, result);
-            dfd.reject(result);
-        };
-        var handleComplete = function() {
-            result = new SyncResult(data, syncResponseData, totalItemsProcessed, "Complete");
-            $log.debug("Sync Handler: " + Model.modelName, "Sync Complete", result);
-            syncHandler.updateLastSyncTimeToNow(Model);
-            dfd.resolve(result);
-        };
-        $log.debug("Sync Handler: Sending " + data.length + " local item(s) to sync");
-        syncHandler.sendSyncRequestData(Model, data).then(function(syncResponse) {
-            // TODO: Handle Conflicts
-            $log.debug("Sync Handler: Found " + syncResponse.data.length + " remote item(s) to sync");
-            totalItemsProcessed += syncResponse.data.length;
-            syncResponseData = syncResponse.data;
-            if (syncResponse.data.length > 0) {
-                syncHandler.processSyncResponseData(Model, syncResponse.data).then(handleComplete, handleError);
-            } else {
-                // No data from server to sync
-                handleComplete();
-            }
-        }, handleError);
-        return dfd.promise;
-    };
-    /**
-         * Initializes a sync at the model level. This will look for all local entities that have been modified since
-         * the last sync time and send them to the remote adapter to be synchronized. The remote adapter should respond
-         * with an Array of Model entities that need to be updated locally.
-         * @param {Object} Model The model initiating the sync
-         * @returns {promise}
-         */
-    syncHandler.model = function(Model) {
-        var dfd = $q.defer();
-        var result;
-        // Perform the validation checks before the local adapter is called
-        var isValid = syncHandler.validateModel(Model);
-        if (isValid !== true) {
-            $log.error("Sync Handler: " + Model.modelName, isValid);
-            return $q.reject(isValid);
-        }
-        $log.debug("Sync Handler: Starting Model Sync");
-        var lastSync = this.getLastSyncTime(Model);
-        var queryOptions = new PreparedQueryOptions();
-        if (lastSync) {
-            var predicate = new Predicate("lastModified").greaterThanOrEqualTo(lastSync);
-            queryOptions.$filter(predicate);
-        }
-        // Get all local entities in this model that have been modified since the last sync time and therefor should
-        // be sent to the remote adapter
-        Model.localAdapter.find(Model, queryOptions, true).then(function(response) {
-            return syncHandler.processSyncRequest(Model, response.data);
-        }, function(e) {
-            // An error occurred while fetching the local entities
-            result = new SyncResult([], [], 0, e);
-            $log.error("Sync Handler: " + Model.modelName, result);
-            dfd.reject(result);
-        }).then(function(syncResponse) {
-            dfd.resolve(syncResponse);
-        }, function(e) {
-            dfd.reject(e);
-        });
-        return dfd.promise;
-    };
-    /**
-         * Initializes a sync at the entity level. This will only send the single entity (in an array) to the remote
-         * adapter to be synchronized (regardless of the lastModified time). The remote adapter should respond with an
-         * Array of Model entities that need to be updated locally.
-         * @param {Object} Model The model initiating the sync
-         * @param {Object} entity The entity to send to the remote adapter for synchronization
-         * @returns {promise}
-         */
-    syncHandler.entity = function(Model, entity) {
-        $log.debug("Sync Handler: Starting Entity Sync");
-        return syncHandler.processSyncRequest(Model, [ entity ]);
-    };
-    return syncHandler;
 } ]);

@@ -6,17 +6,10 @@ angular.module('recall').provider('recall', [
     function () {
         var config = {};
 
-        // The default local adapter to use unless otherwise specified by the model Definition
-        config.localAdapter = null;
-        this.setLocalAdapter = function (localAdapter) {
-            config.localAdapter = localAdapter;
-            return this;
-        };
-
-        // The default remote adapter to use unless otherwise specified by the model Definition
-        config.remoteAdapter = null;
-        this.setRemoteAdapter = function (remoteAdapter) {
-            config.remoteAdapter = remoteAdapter;
+        // The default adapter to use unless otherwise specified by the model Definition
+        config.adapter = null;
+        this.setAdapter = function (adapter) {
+            config.adapter = adapter;
             return this;
         };
 
@@ -52,12 +45,9 @@ angular.module('recall').provider('recall', [
             baseModelService.setLastModifiedFieldName(config.lastModifiedFieldName);
             baseModelService.setDeletedFieldName(config.deletedFieldName);
 
-            // Set the adapters
-            if (config.localAdapter) {
-                baseModelService.setLocalAdapter(config.localAdapter);
-            }
-            if (config.remoteAdapter) {
-                baseModelService.setRemoteAdapter(config.remoteAdapter);
+            // Set the adapter
+            if (config.adapter) {
+                baseModelService.setAdapter(config.adapter);
             }
 
             /*------------------------------ Alias methods exposed in the recall service -------------------------------*/
