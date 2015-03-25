@@ -288,20 +288,20 @@ angular.module('recall.adapter.sync', ['recall']).provider('recallSyncAdapter', 
                         $log.debug('SyncAdapter: Sending ' + response.count + ' local item(s) to sync');
                         totalItemsProcessed += response.count;
                         syncRequestData = response.data;
-                        return sendSyncRequestData(theModel, response.data);
-                    }, handleError).then(function (syncResponse) {
-                        // TODO: Handle Conflicts
+                        sendSyncRequestData(theModel, response.data).then(function (syncResponse) {
+                            // TODO: Handle Conflicts
 
-                        $log.debug('SyncAdapter: Found ' + syncResponse.data.length + ' remote item(s) to sync');
-                        totalItemsProcessed += syncResponse.data.length;
-                        syncResponseData = syncResponse.data;
+                            $log.debug('SyncAdapter: Found ' + syncResponse.data.length + ' remote item(s) to sync');
+                            totalItemsProcessed += syncResponse.data.length;
+                            syncResponseData = syncResponse.data;
 
-                        if (syncResponse.data.length > 0) {
-                            processSyncResponseData(theModel, syncResponse.data).then(handleComplete, handleError);
-                        } else {
-                            // No data from server to sync
-                            handleComplete();
-                        }
+                            if (syncResponse.data.length > 0) {
+                                processSyncResponseData(theModel, syncResponse.data).then(handleComplete, handleError);
+                            } else {
+                                // No data from server to sync
+                                handleComplete();
+                            }
+                        }, handleError);
                     }, handleError);
 
                     return dfd.promise;

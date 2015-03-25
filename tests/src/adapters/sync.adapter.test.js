@@ -1,4 +1,4 @@
-/*globals describe, beforeEach, afterEach, module, inject, it, should*/
+/*globals describe, assert, sinon, beforeEach, afterEach, module, inject, it, should*/
 describe("SyncAdapter", function () {
     var provider;
     var adapter;
@@ -13,6 +13,7 @@ describe("SyncAdapter", function () {
 
     beforeEach(module('recall.adapter.sync', function (recallSyncAdapterProvider) {
         model = {
+            modelName: 'modelName',
             dataSourceName: "testEndpoint"
         };
         master = {
@@ -116,7 +117,7 @@ describe("SyncAdapter", function () {
             should.equal(false, result);
         }));
 
-        it("Should pass if allgoes well", inject(function ($injector) {
+        it("Should pass if all goes well", inject(function ($injector) {
             adapter = $injector.invoke(provider.$get);
             master.modelValidationHook = function (model) {
                 return true;
@@ -242,5 +243,339 @@ describe("SyncAdapter", function () {
 
             should.equal(true, promiseFailed);
         });
+    });
+
+    describe("Synchronize", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
+        it("Should get the lastSyncTime from local storage", inject(function ($injector, $q, recallLocalStorage) {
+            var date = new Date().toISOString();
+            sinon.stub(recallLocalStorage, 'get').returns(date);
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            assert(recallLocalStorage.get.calledWith(recallLocalStorage.keys.LAST_SYNC, model.modelName));
+        }));
+
+        it("Should call find on the slave with the correct args", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var queryOptions;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            assert(slave.find.calledWith(model, queryOptions, true));
+        }));
+
+        it("Should fetch all the items from the slave that have been modified since the lastSyncTime", inject(function ($q, recallLocalStorage) {
+            var date = new Date().toISOString();
+            sinon.stub(recallLocalStorage, 'get').returns(date);
+            var queryOptions;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            queryOptions.$filter().parsePredicate().should.equal("lastModified ge '" + date + "'");
+        }));
+
+        it("Should fetch all items if no last sync is found", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var queryOptions;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            should.equal(null, queryOptions.$filter());
+        }));
+
+        it("Should increment the total count with the number of items found from the slave", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var result;
+            var data = [{id: 1}];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: 1});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model).then(function (syncResult) {
+                result = syncResult;
+            });
+            $rootScope.$apply();
+
+            result.sent.should.equal(data);
+            result.returned.length.should.equal(0);
+            result.totalProcessed.should.equal(1);
+            result.status.should.equal("Complete");
+        }));
+
+        it("Should reject with an error when the slave find fails", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var result;
+
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.reject("error");
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model).then(null, function (syncResult) {
+                result = syncResult;
+            });
+            $rootScope.$apply();
+
+            result.sent.length.should.equal(0);
+            result.returned.length.should.equal(0);
+            result.totalProcessed.should.equal(0);
+            result.status.should.equal("error");
+        }));
+
+        it("Should call synchronize on the master with the correct args", inject(function ($q, recallLocalStorage) {
+            var date = new Date().toDateString();
+            sinon.stub(recallLocalStorage, 'get').returns(date);
+            var data= [{id: '1'}];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: data.length});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            assert(master.synchronize.calledWith(model, data, date));
+        }));
+
+        it("Should increment the total count with the number of items found from the slave", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var result;
+            var data = [{id: 1}];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: data.length});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model).then(function (syncResult) {
+                result = syncResult;
+            });
+            $rootScope.$apply();
+
+            result.sent.length.should.equal(0);
+            result.returned.should.equal(data);
+            result.totalProcessed.should.equal(1);
+            result.status.should.equal("Complete");
+        }));
+
+        it("Should call synchronize on the slave when the master returned data", inject(function ($q, recallLocalStorage) {
+            var date = new Date().toDateString();
+            sinon.stub(recallLocalStorage, 'get').returns(date);
+            var data = [{id: 1}];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: data.length});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            slave.synchronize.calledOnce.should.equal(true);
+            assert(slave.synchronize.calledWith(model, data, date));
+        }));
+
+        it("Should not call synchronize on the slave when the master does not return data", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var data = [];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: data.length});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            slave.synchronize.called.should.equal(false);
+        }));
+
+        it("Should reject with an error when the master synchronize fails", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var result;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.reject("error");
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model).then(null, function (syncResult) {
+                result = syncResult;
+            });
+            $rootScope.$apply();
+
+            result.sent.length.should.equal(0);
+            result.returned.length.should.equal(0);
+            result.totalProcessed.should.equal(0);
+            result.status.should.equal("error");
+        }));
+
+        it("Should reject with an error when the slave synchronize fails", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var result;
+            var data = [{id: '1'}];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: data.length});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.reject('error');
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model).then(null, function (syncResult) {
+                result = syncResult;
+            });
+            $rootScope.$apply();
+
+            result.sent.length.should.equal(0);
+            result.returned.should.equal(data);
+            result.totalProcessed.should.equal(1);
+            result.status.should.equal("error");
+        }));
+
+        it("Should update the last sync time on success", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            sinon.stub(recallLocalStorage, 'set').returns(null);
+            var data = [{id: '1'}];
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: data, count: data.length});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model);
+            $rootScope.$apply();
+
+            assert(recallLocalStorage.set.calledWith(recallLocalStorage.keys.LAST_SYNC, new Date().toISOString(), model.modelName));
+        }));
     });
 });
