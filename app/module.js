@@ -1,16 +1,18 @@
 /**
  * Define the Angular Module and configure Recall
  */
-angular.module('recallDemo', ['recall', 'recall.adapter.indexedDB', 'recall.adapter.oDataREST']).config([
+angular.module('recallDemo', ['recall', 'recall.adapter.indexedDB', 'recall.adapter.oDataREST', 'recall.adapter.sync']).config([
     'recallProvider',
     'recallIndexedDBAdapterProvider',
     'recallODataRESTAdapterProvider',
+    'recallSyncAdapterProvider',
 
-    function (recallProvider, recallIndexedDBAdapterProvider, recallODataRESTAdapterProvider) {
+    function (recallProvider, recallIndexedDBAdapterProvider, recallODataRESTAdapterProvider, recallSyncAdapterProvider) {
 
-        // Specify both local and remote adapters to enable synchronization
-        recallProvider.setLocalAdapter('recallIndexedDBAdapter');
-        recallProvider.setRemoteAdapter('recallODataRESTAdapter');
+        // Specify both slave and master adapters to enable synchronization
+        recallSyncAdapterProvider.setSlave('recallIndexedDBAdapter');
+        recallSyncAdapterProvider.setMaster('recallODataRESTAdapter');
+        recallProvider.setAdapter('recallSyncAdapter');
 
          // Set last modified and deleted fields to enable synchronization
         recallProvider.setLastModifiedFieldName('lastModified');

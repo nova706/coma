@@ -5,8 +5,9 @@ angular.module('recallDemo').controller('RootCtrl', [
     '$scope',
     'Person',
     'recallPreparedQueryOptions',
+    'recallSyncAdapter',
 
-    function ($scope, Person, PreparedQueryOptions) {
+    function ($scope, Person, PreparedQueryOptions, syncAdapter) {
 
         $scope.localPerson = null;
         $scope.remotePerson = null;
@@ -56,6 +57,7 @@ angular.module('recallDemo').controller('RootCtrl', [
             });
 
             // Find all people from the remote adapter
+            queryOptions.preferMaster(true);
             Person.find(queryOptions, true).then(function (response) {
                 $scope.remotePeople = response.results;
                 if ($scope.remotePerson) {
@@ -73,13 +75,19 @@ angular.module('recallDemo').controller('RootCtrl', [
             });
         };
 
+        $scope.savePerson = function (person, remote) {
+            var queryOptions = new PreparedQueryOptions().preferMaster(remote);
+            person.$save(queryOptions);
+        };
+
         // Creates a new Person entity and saves it to the adapter
         $scope.createPerson = function (remote) {
             var person = new Person({
                 firstName: 'John',
                 lastName: 'Doe'
             });
-            person.$save(remote).then(function () {
+            var queryOptions = new PreparedQueryOptions().preferMaster(remote);
+            person.$save(queryOptions).then(function () {
                 if (remote) {
                     $scope.remotePeople.push(person);
                 } else {
@@ -91,7 +99,8 @@ angular.module('recallDemo').controller('RootCtrl', [
         // Removes a person entity from the adapter
         $scope.removePerson = function (person, $index, $event, remote) {
             $event.stopPropagation();
-            person.$remove().then(function () {
+            var queryOptions = new PreparedQueryOptions().preferMaster(remote);
+            person.$remove(queryOptions).then(function () {
                 if (remote) {
                     $scope.remotePeople.splice($index, 1);
                 } else {
@@ -108,7 +117,7 @@ angular.module('recallDemo').controller('RootCtrl', [
 
         // Synchronizes people
         $scope.syncPeople = function () {
-            Person.synchronize().then(function () {
+            syncAdapter.synchronize(Person).then(function () {
                 queryPeople();
             });
         };
