@@ -1130,14 +1130,23 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
         this.modelName = definition.modelName || definition.hasOne || definition.hasMany;
         this.alias = definition.as || definition.alias || this.modelName;
         this.mappedBy = definition.mappedBy || definition.foreignKey;
-        this.getModel = function() {
-            return Association.getAssociationModel(this.modelName);
-        };
         if (!this.modelName || !this.type || !this.mappedBy) {
             $log.error("Association: The association definition is invalid", definition);
             this.invalid = true;
         }
     };
+    /**
+         * Gets the Association's Model
+         * @returns {Object} The model
+         */
+    Association.prototype.getModel = function() {
+        return Association.getAssociationModel(this.modelName);
+    };
+    /**
+         * Expands the association and adds it to the entity
+         * @param {Entity} entity The entity to add the expanded association to
+         * @returns {promise}
+         */
     Association.prototype.expand = function(entity) {
         var dfd = $q.defer();
         var self = this;
@@ -1174,8 +1183,11 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
                 $log.error("Association: Expand", self.type, self.alias, entity, e);
                 dfd.reject(e);
             });
+        } else {
+            $log.error("Association: Expand Association type not supported", self.type, self.alias, entity);
+            dfd.reject("Association type not supported");
         }
-        return dfd.promise();
+        return dfd.promise;
     };
     // Implemented by the baseModelService
     Association.getAssociationModel = null;
