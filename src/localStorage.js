@@ -1,12 +1,13 @@
 angular.module('recall').factory('recallLocalStorage', [
-    function () {
+    '$document',
+    '$window',
+
+    function ($document, $window) {
 
         /**
          * The localStorage utility helps manage the storage and retrieval of registered application data.
          */
         var storage = {
-            localStorage: window.localStorage,
-            cookie: document.cookie,
             keys: {
                 LAST_SYNC: 'LAST_SYNC'
             }
@@ -46,11 +47,11 @@ angular.module('recall').factory('recallLocalStorage', [
             if (keyExists(key)) {
                 key = addKeyModifier(key, keyModifier);
                 if (storage.supportsLocalStorage()) {
-                    storage.localStorage.setItem(key, value);
+                    $window.localStorage.setItem(key, value);
                 } else {
                     var life = 60 * 60 * 24 * 5;
                     var v = encodeURIComponent(value);
-                    storage.cookie = key + '=' + v + '; max-age=' + life + ';';
+                    $document.cookie = key + '=' + v + '; max-age=' + life + ';';
                 }
             }
         };
@@ -68,10 +69,10 @@ angular.module('recall').factory('recallLocalStorage', [
             if (keyExists(key)) {
                 key = addKeyModifier(key, keyModifier);
                 if (storage.supportsLocalStorage()) {
-                    value = storage.localStorage.getItem(key) || "";
+                    value = $window.localStorage.getItem(key) || "";
                 } else {
                     var regexp = new RegExp(key + "=([^;]+)", "g");
-                    var c = regexp.exec(storage.cookie);
+                    var c = regexp.exec($document.cookie);
 
                     if (c) {
                         value = decodeURIComponent(c[1]) ;
@@ -92,9 +93,9 @@ angular.module('recall').factory('recallLocalStorage', [
             if (keyExists(key)) {
                 key = addKeyModifier(key, keyModifier);
                 if (storage.supportsLocalStorage()) {
-                    storage.localStorage.removeItem(key);
+                    $window.localStorage.removeItem(key);
                 } else {
-                    storage.cookie = key + '=; max-age=0;';
+                    $document.cookie = key + '=; max-age=0;';
                 }
             }
         };
@@ -107,7 +108,7 @@ angular.module('recall').factory('recallLocalStorage', [
          */
         storage.supportsLocalStorage = function () {
             try {
-                return 'localStorage' in window && window.localStorage !== null;
+                return 'localStorage' in $window && $window.localStorage !== null;
             } catch (e) {
                 return false;
             }
