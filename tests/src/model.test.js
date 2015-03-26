@@ -102,6 +102,20 @@ describe("Model", function () {
         });
     });
 
+    describe("Entity Constructor", function () {
+        it("Should construct a new Entity from the model", function () {
+            var model = new Model(testModelDefinition);
+            model.initializeModelFields();
+            model.initializeAssociations();
+
+            var entity = new model.Entity({id: '1', other: 'other'});
+
+            entity.id.should.equal('1');
+            entity.$entity.storedState.id.should.equal('1');
+            should.equal(entity.other, undefined);
+        });
+    });
+
     describe("setLastModifiedFieldName", function () {
         it("Should set the last modified field name", function () {
             var model = new Model(testModelDefinition);

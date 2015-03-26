@@ -29,7 +29,14 @@ angular.module('recall').factory("recallModel", [
             this.modelName = modelDefinition.name;
             this.dataSourceName = modelDefinition.dataSourceName || modelDefinition.name;
 
-            Object.defineProperty(this, "modelDefinition", {value: modelDefinition});
+            // Add the model definition to the Model as read only
+            Object.defineProperty(this, "modelDefinition", {value: modelDefinition, writable: false});
+
+            // Add a Constructor method to the Model for constructing new Entities from the Model: new Model.Entity();
+            var self = this;
+            Object.defineProperty(this, "Entity", {writable: false, configurable: false, value: function (obj, persisted) {
+                return( new Entity(obj, self, persisted === true) );
+            }});
 
             this.fields = {};
             this.associations = [];
