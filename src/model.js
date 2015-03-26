@@ -69,15 +69,13 @@ angular.module('recall').factory("recallModel", [
                 if (modelDefinitionFields.hasOwnProperty(field)) {
                     modelField = new ModelField(field, modelDefinitionFields[field]);
 
-                    if (modelField.invalid) {
-                        return false;
-                    }
-
                     if (modelField.primaryKey) {
                         this.primaryKeyFieldName = field;
                     }
 
-                    if (!modelField.invalid) {
+                    if (modelField.invalid) {
+                        return false;
+                    } else {
                         this.fields[field] = modelField;
                     }
 
@@ -99,6 +97,10 @@ angular.module('recall').factory("recallModel", [
                     type: "Date",
                     index: true
                 });
+            }
+            if (deletedField && deletedField.type !== "Boolean") {
+                $log.error('Model: The deletedField field is not a Boolean field');
+                return false;
             }
             if (this.deletedFieldName && !deletedField) {
                 this.fields[this.deletedFieldName] = new ModelField(this.deletedFieldName, {
@@ -194,13 +196,13 @@ angular.module('recall').factory("recallModel", [
                 ForeignModel = this.associations[i].getModel();
 
                 if (this.associations[i].type === 'hasOne') {
-                    if (modelEntity[alias] !== undefined && includeExpandedAssociations !== false) {
+                    if (modelEntity[alias] !== undefined) {
                         foreignKey = modelEntity[alias][ForeignModel.primaryKeyFieldName];
                         object[this.associations[i].mappedBy] = foreignKey;
-                        object[alias] = ForeignModel.getRawModelObject(modelEntity[alias]);
-                    }
-                    if (modelEntity[this.associations[i].mappedBy]) {
-                        object[this.associations[i].mappedBy] = modelEntity[this.associations[i].mappedBy];
+
+                        if (includeExpandedAssociations !== false) {
+                            object[alias] = ForeignModel.getRawModelObject(modelEntity[alias]);
+                        }
                     }
                 } else if (this.associations[i].type === 'hasMany' && includeExpandedAssociations !== false) {
                     if (modelEntity[alias] !== undefined && modelEntity[alias] instanceof Array) {

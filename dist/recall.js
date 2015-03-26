@@ -1112,7 +1112,7 @@ angular.module("recall.adapter.sync", [ "recall" ]).provider("recallSyncAdapter"
     } ];
 } ]);
 
-angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPredicate", "recallPreparedQueryOptions", function($log, $q, Predicate, PreparedQueryOptions) {
+angular.module("recall").factory("recallAssociation", [ "$injector", "$log", "$q", "recallPredicate", "recallPreparedQueryOptions", function($injector, $log, $q, Predicate, PreparedQueryOptions) {
     /**
          * Association class
          * @param {Object|Association} definition
@@ -1140,7 +1140,8 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
          * @returns {Object} The model
          */
     Association.prototype.getModel = function() {
-        return Association.getAssociationModel(this.modelName);
+        var recallService = $injector.get("recall");
+        return recallService.getModel(this.modelName);
     };
     /**
          * Expands the association and adds it to the entity
@@ -1189,8 +1190,6 @@ angular.module("recall").factory("recallAssociation", [ "$log", "$q", "recallPre
         }
         return dfd.promise;
     };
-    // Implemented by the recall service
-    Association.getAssociationModel = null;
     return Association;
 } ]);
 
@@ -1594,13 +1593,12 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
         for (field in modelDefinitionFields) {
             if (modelDefinitionFields.hasOwnProperty(field)) {
                 modelField = new ModelField(field, modelDefinitionFields[field]);
-                if (modelField.invalid) {
-                    return false;
-                }
                 if (modelField.primaryKey) {
                     this.primaryKeyFieldName = field;
                 }
-                if (!modelField.invalid) {
+                if (modelField.invalid) {
+                    return false;
+                } else {
                     this.fields[field] = modelField;
                 }
                 if (field === this.lastModifiedFieldName) {
@@ -1620,6 +1618,10 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
                 type: "Date",
                 index: true
             });
+        }
+        if (deletedField && deletedField.type !== "Boolean") {
+            $log.error("Model: The deletedField field is not a Boolean field");
+            return false;
         }
         if (this.deletedFieldName && !deletedField) {
             this.fields[this.deletedFieldName] = new ModelField(this.deletedFieldName, {
@@ -1708,13 +1710,12 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
             alias = this.associations[i].alias;
             ForeignModel = this.associations[i].getModel();
             if (this.associations[i].type === "hasOne") {
-                if (modelEntity[alias] !== undefined && includeExpandedAssociations !== false) {
+                if (modelEntity[alias] !== undefined) {
                     foreignKey = modelEntity[alias][ForeignModel.primaryKeyFieldName];
                     object[this.associations[i].mappedBy] = foreignKey;
-                    object[alias] = ForeignModel.getRawModelObject(modelEntity[alias]);
-                }
-                if (modelEntity[this.associations[i].mappedBy]) {
-                    object[this.associations[i].mappedBy] = modelEntity[this.associations[i].mappedBy];
+                    if (includeExpandedAssociations !== false) {
+                        object[alias] = ForeignModel.getRawModelObject(modelEntity[alias]);
+                    }
                 }
             } else if (this.associations[i].type === "hasMany" && includeExpandedAssociations !== false) {
                 if (modelEntity[alias] !== undefined && modelEntity[alias] instanceof Array) {
@@ -2821,7 +2822,7 @@ angular.module("recall").provider("recall", [ function() {
         config.deletedFieldName = deletedFieldName;
         return this;
     };
-    this.$get = [ "$injector", "recallModel", "recallAssociation", function($injector, Model, Association) {
+    this.$get = [ "$injector", "recallModel", function($injector, Model) {
         var service = {
             adapter: config.adapter,
             lastModifiedFieldName: config.lastModifiedFieldName,
@@ -2850,10 +2851,6 @@ angular.module("recall").provider("recall", [ function() {
              */
         service.getModel = function(modelName) {
             return this.models[modelName] || null;
-        };
-        // Create a proxy on Association class
-        Association.getAssociationModel = function(modelName) {
-            return service.getModel(modelName);
         };
         /**
              * Creates a model based on a definition.

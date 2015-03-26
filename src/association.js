@@ -1,10 +1,11 @@
 angular.module('recall').factory("recallAssociation", [
+    '$injector',
     '$log',
     '$q',
     'recallPredicate',
     'recallPreparedQueryOptions',
 
-    function ($log, $q, Predicate, PreparedQueryOptions) {
+    function ($injector, $log, $q, Predicate, PreparedQueryOptions) {
 
         /**
          * Association class
@@ -37,7 +38,8 @@ angular.module('recall').factory("recallAssociation", [
          * @returns {Object} The model
          */
         Association.prototype.getModel = function () {
-            return Association.getAssociationModel(this.modelName);
+            var recallService = $injector.get('recall');
+            return recallService.getModel(this.modelName);
         };
 
         /**
@@ -94,9 +96,6 @@ angular.module('recall').factory("recallAssociation", [
 
             return dfd.promise;
         };
-
-        // Implemented by the recall service
-        Association.getAssociationModel = null;
 
         return Association;
     }

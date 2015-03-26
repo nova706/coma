@@ -6,11 +6,13 @@ describe("Association", function () {
     var Association;
     var $rootScope;
     var $q;
+    var recallService;
 
-    beforeEach(inject(function (recallAssociation, _$rootScope_, _$q_) {
+    beforeEach(inject(function (recallAssociation, _$rootScope_, _$q_, recall) {
         Association = recallAssociation;
         $rootScope = _$rootScope_;
         $q = _$q_;
+        recallService = recall;
     }));
 
     describe("New Association", function () {
@@ -153,8 +155,7 @@ describe("Association", function () {
 
     describe("Get Model", function () {
         it("Should return the association's model", function () {
-            Association.getAssociationModel = function () {};
-            sinon.stub(Association, "getAssociationModel").returns("test");
+            sinon.stub(recallService, "getModel").returns("test");
             var association = new Association({
                 hasOne: "model",
                 as: "theModel",
@@ -163,7 +164,7 @@ describe("Association", function () {
 
             association.getModel();
 
-            Association.getAssociationModel.calledWith("model").should.equal(true);
+            recallService.getModel.calledWith("model").should.equal(true);
         });
     });
 
@@ -201,8 +202,7 @@ describe("Association", function () {
                 as: "alias",
                 mappedBy: "modelId"
             });
-            Association.getAssociationModel = function () {};
-            sinon.stub(Association, "getAssociationModel", function () {
+            sinon.stub(recallService, "getModel", function () {
                 return fakeModel;
             });
             entity = {

@@ -35,7 +35,7 @@ angular.module('recall').provider('recall', [
             return this;
         };
 
-        this.$get = ['$injector', 'recallModel', 'recallAssociation', function ($injector, Model, Association) {
+        this.$get = ['$injector', 'recallModel', function ($injector, Model) {
 
             var service = {
                 adapter: config.adapter,
@@ -67,11 +67,6 @@ angular.module('recall').provider('recall', [
              */
             service.getModel = function (modelName) {
                 return this.models[modelName] || null;
-            };
-
-            // Create a proxy on Association class
-            Association.getAssociationModel = function (modelName) {
-                return service.getModel(modelName);
             };
 
             /**

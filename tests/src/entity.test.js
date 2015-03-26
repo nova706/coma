@@ -8,6 +8,10 @@ describe("Entity", function () {
     var $q;
     var fieldValidatorResponse;
 
+    var isWithinRange = function (actual, expected, range) {
+        return actual > expected - range && actual < expected + range;
+    };
+
     var resolvedPromiseFunction = function () {
         var dfd = $q.defer();
         dfd.resolve();
@@ -79,7 +83,7 @@ describe("Entity", function () {
         it("Should initialize the $entity properties", function () {
             var entity = new Entity({id: '1'}, testModel);
 
-            entity.$entity.lastDirtyCheck.should.equal(new Date().getTime());
+            isWithinRange(entity.$entity.lastDirtyCheck, new Date().getTime(), 100).should.equal(true);
             entity.$entity.lastDirtyState.should.equal(false);
             entity.$entity.persisted.should.equal(false);
             entity.$entity.saveInProgress.should.equal(false);
@@ -683,7 +687,7 @@ describe("Entity", function () {
             entity.$entity.lastDirtyState = true;
             entity.$storeState();
 
-            entity.$entity.lastDirtyCheck.should.equal(new Date().getTime());
+            isWithinRange(entity.$entity.lastDirtyCheck, new Date().getTime(), 100).should.equal(true);
             entity.$entity.lastDirtyState.should.equal(false);
         });
     });
@@ -750,7 +754,7 @@ describe("Entity", function () {
             entity.$isDirty();
 
             entity.$entity.lastDirtyState.should.equal(false);
-            entity.$entity.lastDirtyCheck.should.equal(new Date().getTime());
+            isWithinRange(entity.$entity.lastDirtyCheck, new Date().getTime(), 100).should.equal(true);
         });
 
         it("Should return true if a property has changed", function () {
@@ -834,7 +838,7 @@ describe("Entity", function () {
             entity.$entity.lastDirtyState = 'test';
             entity.$reset();
 
-            entity.$entity.lastDirtyCheck.should.equal(new Date().getTime());
+            isWithinRange(entity.$entity.lastDirtyCheck, new Date().getTime(), 100).should.equal(true);
             entity.$entity.lastDirtyState.should.equal(false);
         });
 
