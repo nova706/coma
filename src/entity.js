@@ -46,7 +46,7 @@ angular.module('recall').factory("recallEntity", [
             var association = this.$model.getAssociationByAlias(associationName);
 
             if (!association) {
-                return $q.reject('Entity: $expand could not find the association to expand.', associationName, this);
+                return $q.reject('Entity: $expand could not expand the association.');
             }
 
             return association.expand(this);

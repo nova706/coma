@@ -1236,7 +1236,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
     Entity.prototype.$expand = function(associationName) {
         var association = this.$model.getAssociationByAlias(associationName);
         if (!association) {
-            return $q.reject("Entity: $expand could not find the association to expand.", associationName, this);
+            return $q.reject("Entity: $expand could not expand the association.");
         }
         return association.expand(this);
     };
@@ -2866,8 +2866,8 @@ angular.module("recall").provider("recall", [ function() {
         /**
              * Creates a model based on a definition.
              * @param {Object} modelDefinition The definition of the model including fields and associations
-             * @param {Object} [adapter] The adapter that is used to perform the CRUD actions
-             * @returns {Model} The model
+             * @param {Object|String} [adapter] The adapter that is used to perform the CRUD actions
+             * @returns {Object} The model
              */
         service.defineModel = function(modelDefinition, adapter) {
             adapter = adapter || this.adapter;

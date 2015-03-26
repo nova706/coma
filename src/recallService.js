@@ -77,8 +77,8 @@ angular.module('recall').provider('recall', [
             /**
              * Creates a model based on a definition.
              * @param {Object} modelDefinition The definition of the model including fields and associations
-             * @param {Object} [adapter] The adapter that is used to perform the CRUD actions
-             * @returns {Model} The model
+             * @param {Object|String} [adapter] The adapter that is used to perform the CRUD actions
+             * @returns {Object} The model
              */
             service.defineModel = function (modelDefinition, adapter) {
                 adapter = adapter || this.adapter;
