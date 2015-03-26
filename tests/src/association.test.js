@@ -1,5 +1,5 @@
-/*globals describe, sinon, assert, beforeEach, module, inject, it, should*/
-describe("BaseModelService", function () {
+/*globals describe, sinon, beforeEach, module, inject, it, should*/
+describe("Association", function () {
 
     beforeEach(module('recall'));
 
@@ -163,7 +163,7 @@ describe("BaseModelService", function () {
 
             association.getModel();
 
-            assert(Association.getAssociationModel.calledWith("model"));
+            Association.getAssociationModel.calledWith("model").should.equal(true);
         });
     });
 
@@ -241,7 +241,7 @@ describe("BaseModelService", function () {
             association.expand(entity);
             $rootScope.$apply();
 
-            assert(fakeAdapter.findOne.calledWith(fakeModel, "modelId"));
+            fakeAdapter.findOne.calledWith(fakeModel, "modelId").should.equal(true);
         });
 
         it("Should add the expanded association object to the entity", function () {
@@ -287,7 +287,7 @@ describe("BaseModelService", function () {
             association.expand(entity);
             $rootScope.$apply();
 
-            assert(fakeAdapter.find.calledWith(fakeModel, queryOptions));
+            fakeAdapter.find.calledWith(fakeModel, queryOptions).should.equal(true);
             queryOptions.$filter().parsePredicate().should.equal("modelId eq 'test'");
         });
 

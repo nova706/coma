@@ -1,4 +1,4 @@
-/*globals describe, assert, sinon, beforeEach, afterEach, module, inject, it, should*/
+/*globals describe, sinon, beforeEach, afterEach, module, inject, it, should*/
 describe("SyncAdapter", function () {
     var provider;
     var adapter;
@@ -267,7 +267,7 @@ describe("SyncAdapter", function () {
             adapter.synchronize(model);
             $rootScope.$apply();
 
-            assert(recallLocalStorage.get.calledWith(recallLocalStorage.keys.LAST_SYNC, model.modelName));
+            recallLocalStorage.get.calledWith(recallLocalStorage.keys.LAST_SYNC, model.modelName).should.equal(true);
         }));
 
         it("Should call find on the slave with the correct args", inject(function ($q, recallLocalStorage) {
@@ -289,7 +289,7 @@ describe("SyncAdapter", function () {
             adapter.synchronize(model);
             $rootScope.$apply();
 
-            assert(slave.find.calledWith(model, queryOptions, true));
+            slave.find.calledWith(model, queryOptions, true).should.equal(true);
         }));
 
         it("Should fetch all the items from the slave that have been modified since the lastSyncTime", inject(function ($q, recallLocalStorage) {
@@ -404,7 +404,7 @@ describe("SyncAdapter", function () {
             adapter.synchronize(model);
             $rootScope.$apply();
 
-            assert(master.synchronize.calledWith(model, data, date));
+            master.synchronize.calledWith(model, data, date).should.equal(true);
         }));
 
         it("Should increment the total count with the number of items found from the slave", inject(function ($q, recallLocalStorage) {
@@ -464,7 +464,7 @@ describe("SyncAdapter", function () {
             $rootScope.$apply();
 
             slave.synchronize.calledOnce.should.equal(true);
-            assert(slave.synchronize.calledWith(model, data, date));
+            slave.synchronize.calledWith(model, data, date).should.equal(true);
         }));
 
         it("Should not call synchronize on the slave when the master does not return data", inject(function ($q, recallLocalStorage) {
@@ -575,7 +575,7 @@ describe("SyncAdapter", function () {
             adapter.synchronize(model);
             $rootScope.$apply();
 
-            assert(recallLocalStorage.set.calledWith(recallLocalStorage.keys.LAST_SYNC, new Date().toISOString(), model.modelName));
+            recallLocalStorage.set.calledWith(recallLocalStorage.keys.LAST_SYNC, new Date().toISOString(), model.modelName).should.equal(true);
         }));
     });
 });

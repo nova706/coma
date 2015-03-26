@@ -1,24 +1,10 @@
 /*globals describe, beforeEach, module, inject, it, should*/
-describe("BaseModelService", function () {
+describe("Recall Service", function () {
 
-    beforeEach(module('recall'));
-
-    var baseModelService;
-    var testAdapter = {};
-
-    beforeEach(inject(function (recallBaseModelService) {
-        baseModelService = recallBaseModelService;
-
-        testAdapter = {
-            create: function () { return null; },
-            findOne: function () { return null; },
-            find: function () { return null; },
-            update: function () { return null; },
-            remove: function () { return null; }
-        };
-
-        baseModelService.setAdapter(testAdapter);
-    }));
+    var provider;
+    var service;
+    var testAdapter;
+    var $injector;
 
     var personModelDefinition = {
         name: "person",
@@ -74,26 +60,64 @@ describe("BaseModelService", function () {
         ]
     };
 
-    describe("Set Dirty Check Threshold", function () {
-        it("Should set the dirty checking threshold", function () {
-            baseModelService.setDirtyCheckThreshold(70);
-            baseModelService.dirtyCheckThreshold.should.equal(70);
+    beforeEach(module('recall', function (recallProvider) {
+        provider = recallProvider;
+    }));
+
+    beforeEach(inject(function(_$injector_) {
+        $injector = _$injector_;
+        testAdapter = {
+            create: function () { return null; },
+            findOne: function () { return null; },
+            find: function () { return null; },
+            update: function () { return null; },
+            remove: function () { return null; }
+        };
+    }));
+
+    describe("Set Adapter", function () {
+        it("Should set the adapter", function () {
+            provider.setAdapter("test");
+            service = $injector.invoke(provider.$get);
+            service.adapter.should.equal("test");
         });
     });
 
-    describe("Set Adapter", function () {
-        it("Should set the local adapter", function () {
-            baseModelService.setAdapter("test");
-            baseModelService.adapter.should.equal("test");
+    describe("Set Dirty Check Threshold", function () {
+        it("Should set the dirty checking threshold", function () {
+            provider.setDirtyCheckThreshold(70);
+            service = $injector.invoke(provider.$get);
+            service.dirtyCheckThreshold.should.equal(70);
+        });
+    });
+
+    describe("Set Last Modified Field", function () {
+        it("Should set the last modified field", function () {
+            provider.setLastModifiedFieldName('test');
+            service = $injector.invoke(provider.$get);
+            service.lastModifiedFieldName.should.equal('test');
+        });
+    });
+
+    describe("Set Deleted Field", function () {
+        it("Should set the deleted field", function () {
+            provider.setDeletedFieldName('test');
+            service = $injector.invoke(provider.$get);
+            service.deletedFieldName.should.equal('test');
         });
     });
 
     describe("Get Models", function () {
-        it("Should return an array of the defined models", function () {
-            baseModelService.defineModel(personModelDefinition);
-            baseModelService.defineModel(phoneNumberModelDefinition);
+        beforeEach(inject(function ($injector) {
+            provider.setAdapter(testAdapter);
+            service = $injector.invoke(provider.$get);
+        }));
 
-            var models = baseModelService.getModels();
+        it("Should return an array of the defined models", function () {
+            service.defineModel(personModelDefinition);
+            service.defineModel(phoneNumberModelDefinition);
+
+            var models = service.getModels();
 
             models.length.should.equal(2);
             models[0].modelName.should.equal(personModelDefinition.name);
@@ -102,27 +126,37 @@ describe("BaseModelService", function () {
     });
 
     describe("Get Model", function () {
-        it("Should return a model by its name", function () {
-            baseModelService.defineModel(personModelDefinition);
-            baseModelService.defineModel(phoneNumberModelDefinition);
+        beforeEach(inject(function ($injector) {
+            provider.setAdapter(testAdapter);
+            service = $injector.invoke(provider.$get);
+        }));
 
-            var personModel = baseModelService.getModel(personModelDefinition.name);
+        it("Should return a model by its name", function () {
+            service.defineModel(personModelDefinition);
+            service.defineModel(phoneNumberModelDefinition);
+
+            var personModel = service.getModel(personModelDefinition.name);
 
             personModel.modelName.should.equal(personModelDefinition.name);
         });
 
         it("Should return null if the model is not found", function () {
-            baseModelService.defineModel(phoneNumberModelDefinition);
+            service.defineModel(phoneNumberModelDefinition);
 
-            var personModel = baseModelService.getModel(personModelDefinition.name);
+            var personModel = service.getModel(personModelDefinition.name);
 
             should.equal(null, personModel);
         });
     });
 
     describe("Define Model", function () {
+        beforeEach(inject(function ($injector) {
+            provider.setAdapter(testAdapter);
+            service = $injector.invoke(provider.$get);
+        }));
+
         it("Should initialize basic model properties", function () {
-            var personModel = baseModelService.defineModel(personModelDefinition);
+            var personModel = service.defineModel(personModelDefinition);
 
             personModel.modelName.should.equal(personModelDefinition.name);
             personModel.primaryKeyFieldName.should.equal("id");
@@ -130,8 +164,8 @@ describe("BaseModelService", function () {
         });
 
         it("Should initialize the model fields", function () {
-            var personModel = baseModelService.defineModel(personModelDefinition);
-            var phoneNumberModel = baseModelService.defineModel(phoneNumberModelDefinition);
+            var personModel = service.defineModel(personModelDefinition);
+            var phoneNumberModel = service.defineModel(phoneNumberModelDefinition);
 
             personModel.fields.id.type.should.equal("String");
             personModel.fields.id.primaryKey.should.equal(true);
@@ -178,7 +212,7 @@ describe("BaseModelService", function () {
         });
 
         it("Should initialize the model association hasOne fields", function () {
-            var phoneNumberModel = baseModelService.defineModel(phoneNumberModelDefinition);
+            var phoneNumberModel = service.defineModel(phoneNumberModelDefinition);
 
             phoneNumberModel.fields.personId.type.should.equal("String");
             phoneNumberModel.fields.personId.primaryKey.should.equal(false);
@@ -188,8 +222,8 @@ describe("BaseModelService", function () {
         });
 
         it("Should initialize the model associations", function () {
-            var personModel = baseModelService.defineModel(personModelDefinition);
-            var phoneNumberModel = baseModelService.defineModel(phoneNumberModelDefinition);
+            var personModel = service.defineModel(personModelDefinition);
+            var phoneNumberModel = service.defineModel(phoneNumberModelDefinition);
 
             var phoneNumbersAssociation = personModel.getAssociationByAlias('phoneNumbers');
             var personAssociation = phoneNumberModel.getAssociationByAlias('person');

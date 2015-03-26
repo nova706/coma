@@ -95,7 +95,7 @@ angular.module('recall').factory("recallAssociation", [
             return dfd.promise;
         };
 
-        // Implemented by the baseModelService
+        // Implemented by the recall service
         Association.getAssociationModel = null;
 
         return Association;
