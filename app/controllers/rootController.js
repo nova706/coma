@@ -82,16 +82,16 @@ angular.module('recallDemo').controller('RootCtrl', [
 
         // Creates a new Person entity and saves it to the adapter
         $scope.createPerson = function (remote) {
-            var person = new Person({
+            var person = new Person.Entity({
                 firstName: 'John',
                 lastName: 'Doe'
             });
             var queryOptions = new PreparedQueryOptions().preferMaster(remote);
             person.$save(queryOptions).then(function () {
                 if (remote) {
-                    $scope.remotePeople.push(person);
+                    $scope.remotePeople.unshift(person);
                 } else {
-                    $scope.localPeople.push(person);
+                    $scope.localPeople.unshift(person);
                 }
             });
         };
