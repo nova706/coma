@@ -5,6 +5,7 @@ describe("Recall Service", function () {
     var service;
     var testAdapter;
     var $injector;
+    var adapterValidationResponse;
 
     var personModelDefinition = {
         name: "person",
@@ -19,7 +20,10 @@ describe("Recall Service", function () {
                 index: "firstName",
                 notNull: true
             },
-            lastName: "String",
+            lastName: {
+                type: "String",
+                validate: function () { return true; }
+            },
             added: {
                 type: "Date",
                 getDefaultValue: function () {
@@ -60,18 +64,21 @@ describe("Recall Service", function () {
         ]
     };
 
-    beforeEach(module('recall', function (recallProvider) {
+    beforeEach(module('recall', function (recallProvider, $provide) {
         provider = recallProvider;
+        $provide.factory('testAdapter', function () { return testAdapter; });
     }));
 
     beforeEach(inject(function(_$injector_) {
         $injector = _$injector_;
+        adapterValidationResponse = true;
         testAdapter = {
             create: function () { return null; },
             findOne: function () { return null; },
             find: function () { return null; },
             update: function () { return null; },
-            remove: function () { return null; }
+            remove: function () { return null; },
+            modelValidationHook: function () { return adapterValidationResponse; }
         };
     }));
 
@@ -149,11 +156,112 @@ describe("Recall Service", function () {
         });
     });
 
+    describe("Define Model with injected adapter", function () {
+        beforeEach(inject(function ($injector) {
+            provider.setAdapter("testAdapter");
+            service = $injector.invoke(provider.$get);
+        }));
+
+        it("Should inject the adapter", function () {
+            var personModel = service.defineModel(personModelDefinition);
+            personModel.adapter.should.equal(testAdapter);
+        });
+    });
+
+    describe("Define Model without adapter", function () {
+        beforeEach(inject(function ($injector) {
+            provider.setAdapter(null);
+            service = $injector.invoke(provider.$get);
+        }));
+
+        it("Should return null", function () {
+            var personModel = service.defineModel(personModelDefinition);
+            should.equal(null, personModel);
+        });
+    });
+
     describe("Define Model", function () {
         beforeEach(inject(function ($injector) {
             provider.setAdapter(testAdapter);
             service = $injector.invoke(provider.$get);
         }));
+
+        it("Should return null if no model definition is given", function () {
+            var personModel = service.defineModel();
+            should.equal(null, personModel);
+        });
+
+        it("Should return null if the model definition is missing a name", function () {
+            var personModel = service.defineModel({
+                dataSourceName: "phonenumbers",
+                fields: {
+                    id: {
+                        primaryKey: true,
+                        type: "String"
+                    },
+                    number: "String",
+                    primary: {
+                        type: "Boolean",
+                        index: "primary"
+                    }
+                }
+            });
+            should.equal(null, personModel);
+        });
+
+        it("Should return the model if it is already defined", function () {
+            var model1 = service.defineModel({
+                name: 'test',
+                dataSourceName: "phonenumbers",
+                fields: {
+                    id: {
+                        primaryKey: true,
+                        type: "String"
+                    },
+                    number: "String",
+                    primary: {
+                        type: "Boolean",
+                        index: "primary"
+                    }
+                }
+            });
+
+            var model2 = service.defineModel({
+                name: 'test'
+            });
+
+            model2.should.equal(model1);
+        });
+
+        it("Should return null if the model fields are invalid", function () {
+            var personModel = service.defineModel({
+                name: 'test',
+                dataSourceName: "phonenumbers",
+                fields: {
+                    id: {
+                        primaryKey: true
+                    }
+                }
+            });
+
+            should.equal(personModel, null);
+        });
+
+        it("Should return null if the modelValidationHook on the adapter fails", function () {
+            adapterValidationResponse = false;
+            var personModel = service.defineModel({
+                name: 'test',
+                dataSourceName: "phonenumbers",
+                fields: {
+                    id: {
+                        primaryKey: true,
+                        type: 'String'
+                    }
+                }
+            });
+
+            should.equal(personModel, null);
+        });
 
         it("Should initialize basic model properties", function () {
             var personModel = service.defineModel(personModelDefinition);
@@ -184,6 +292,7 @@ describe("Recall Service", function () {
             personModel.fields.lastName.unique.should.equal(false);
             personModel.fields.lastName.index.should.equal(false);
             personModel.fields.lastName.notNull.should.equal(false);
+            should.equal(typeof personModel.fields.lastName.validate, 'function');
 
             personModel.fields.added.type.should.equal("Date");
             personModel.fields.added.primaryKey.should.equal(false);

@@ -69,6 +69,10 @@ angular.module('recall').factory("recallModel", [
                 if (modelDefinitionFields.hasOwnProperty(field)) {
                     modelField = new ModelField(field, modelDefinitionFields[field]);
 
+                    if (modelField.invalid) {
+                        return false;
+                    }
+
                     if (modelField.primaryKey) {
                         this.primaryKeyFieldName = field;
                     }
