@@ -680,7 +680,7 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
     this.$get = [ "$http", "$log", "$q", "recallAdapterResponse", function($http, $log, $q, AdapterResponse) {
         var adapter = {};
         // Appends the query options to the URL
-        var addOptionsToUrl = function(url, queryOptions) {
+        var getUrlWithOptions = function(url, queryOptions) {
             url += queryOptions ? queryOptions.parseOptions() : "";
             return url;
         };
@@ -720,7 +720,7 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
                 $log.error("ODataRESTAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
                 return $q.reject(response);
             }
-            var url = addOptionsToUrl(providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk, queryOptions);
+            var url = getUrlWithOptions(providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk, queryOptions);
             $http.get(url).success(function(data, status, headers, config) {
                 response = new AdapterResponse(data, 1, status, headers, config);
                 $log.debug("ODataRESTAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
@@ -741,7 +741,7 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
         adapter.find = function(theModel, queryOptions) {
             var dfd = $q.defer();
             var response;
-            var url = addOptionsToUrl(providerConfig.serverAPILocation + theModel.dataSourceName);
+            var url = getUrlWithOptions(providerConfig.serverAPILocation + theModel.dataSourceName, queryOptions);
             $http.get(url).success(function(data, status, headers, config) {
                 var results = data;
                 var totalCount;

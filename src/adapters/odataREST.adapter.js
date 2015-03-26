@@ -41,7 +41,7 @@ angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataREST
                 var adapter = {};
 
                 // Appends the query options to the URL
-                var addOptionsToUrl = function (url, queryOptions) {
+                var getUrlWithOptions = function (url, queryOptions) {
                     url += queryOptions ? queryOptions.parseOptions() : "";
                     return url;
                 };
@@ -90,7 +90,7 @@ angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataREST
                         return $q.reject(response);
                     }
 
-                    var url = addOptionsToUrl(providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk, queryOptions);
+                    var url = getUrlWithOptions(providerConfig.serverAPILocation + theModel.dataSourceName + "/" + pk, queryOptions);
 
                     $http.get(url)
                         .success(function (data, status, headers, config) {
@@ -117,7 +117,7 @@ angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataREST
                     var dfd = $q.defer();
                     var response;
 
-                    var url = addOptionsToUrl(providerConfig.serverAPILocation + theModel.dataSourceName);
+                    var url = getUrlWithOptions(providerConfig.serverAPILocation + theModel.dataSourceName, queryOptions);
 
                     $http.get(url)
                         .success(function (data, status, headers, config) {
