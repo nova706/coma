@@ -552,8 +552,11 @@ describe("SyncAdapter", function () {
         }));
 
         it("Should update the last sync time on success", inject(function ($q, recallLocalStorage) {
+            var newDate;
             sinon.stub(recallLocalStorage, 'get').returns(null);
-            sinon.stub(recallLocalStorage, 'set').returns(null);
+            sinon.stub(recallLocalStorage, 'set', function (key, date, modelName) {
+                newDate = date;
+            });
             var data = [{id: '1'}];
 
             sinon.stub(master, "synchronize", function () {
@@ -575,7 +578,7 @@ describe("SyncAdapter", function () {
             adapter.synchronize(model);
             $rootScope.$apply();
 
-            recallLocalStorage.set.calledWith(recallLocalStorage.keys.LAST_SYNC, new Date().toISOString(), model.modelName).should.equal(true);
+            recallLocalStorage.set.calledWith(recallLocalStorage.keys.LAST_SYNC, newDate, model.modelName).should.equal(true);
         }));
     });
 });
