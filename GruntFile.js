@@ -11,7 +11,8 @@ module.exports = function(grunt) {
                 options: {
                     mangle: true,
                     sourceMap: true,
-                    sourceMapName: 'dist/recall.min.map'
+                    sourceMapName: 'dist/recall.min.map',
+                    sourceMapIncludeSources: true
                 },
                 files: {
                     'dist/recall.min.js': ['src/**/*.js']
