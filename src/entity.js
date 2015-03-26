@@ -46,7 +46,7 @@ angular.module('recall').factory("recallEntity", [
             var association = this.$model.getAssociationByAlias(associationName);
 
             if (!association) {
-                return $q.reject('Entity: $expand could not expand the association.');
+                return $q.reject('Entity: $expand could not find the association.');
             }
 
             return association.expand(this);
@@ -59,7 +59,6 @@ angular.module('recall').factory("recallEntity", [
         Entity.prototype.$isValid = function () {
             // TODO: This does not validate associations
             var field;
-            var valid = true;
             var matchesType = false;
             var fieldIsUndefined;
             for (field in this.$model.fields) {
@@ -87,16 +86,13 @@ angular.module('recall').factory("recallEntity", [
                         $log.debug("Entity: $isValid returned false", "The type was not " + this.$model.fields[field].type, field, this);
                         return false;
                     }
-                    if (typeof this.$model.fields[field].validate === "function") {
-                        valid = this.$model.fields[field].validate(this[field]);
-                        if (!valid) {
-                            $log.debug("Entity: $isValid returned false", "Custom validator failed", field, this);
-                            return false;
-                        }
+                    if (typeof this.$model.fields[field].validate === "function" && !this.$model.fields[field].validate(this[field])) {
+                        $log.debug("Entity: $isValid returned false", "Custom validator failed", field, this);
+                        return false;
                     }
                 }
             }
-            return valid;
+            return true;
         };
 
         /**
@@ -108,48 +104,8 @@ angular.module('recall').factory("recallEntity", [
          * @returns {promise} Resolves with the model
          */
         Entity.prototype.$save = function (queryOptions) {
+            var dfd = $q.defer();
             var self = this;
-            var itemToSave = self.$model.preSave(self);
-
-            self.$entity.saveInProgress = true;
-
-            var updateSavedState = function (entity, succeeded) {
-                if (succeeded !== false) {
-                    self.$storeState();
-                    self.$entity.persisted = true;
-                    self.$entity.saveInProgress = false;
-                } else {
-                    self.$reset();
-                    self.$entity.saveInProgress = false;
-                }
-            };
-
-            // The model exists in the DB
-            if (self.$entity.persisted && itemToSave[self.$model.primaryKeyFieldName]) {
-                itemToSave = self.$model.preUpdate(itemToSave);
-
-                if (!self.$isValid()) {
-                    $log.warn("Entity: $save: aborted", self, self[self.$model.primaryKeyFieldName]);
-                    self.$reset();
-                    return $q.reject("aborted");
-                }
-
-                var pk = itemToSave[self.$model.primaryKeyFieldName];
-                return self.$model.adapter.update(self.$model, pk, itemToSave, queryOptions).then(function (response) {
-                    var result = self.$model.transformResult(response.data);
-                    self.$model.extendFromRawObject(self, result);
-                    updateSavedState(self, true);
-                    $log.debug("Entity: $save: update", self, itemToSave, response);
-                    return self;
-                }, function (e) {
-                    updateSavedState(self, false);
-                    $log.error("Entity: $save: update", self, itemToSave, e);
-                    return $q.reject(e);
-                });
-            }
-
-            // The model is new
-            itemToSave = self.$model.preCreate(itemToSave);
 
             if (!self.$isValid()) {
                 $log.warn("Entity: $save: aborted", self, self[self.$model.primaryKeyFieldName]);
@@ -157,17 +113,52 @@ angular.module('recall').factory("recallEntity", [
                 return $q.reject("aborted");
             }
 
-            return self.$model.adapter.create(self.$model, itemToSave, queryOptions).then(function (response) {
-                var result = self.$model.transformResult(response.data);
-                self.$model.extendFromRawObject(self, result);
-                updateSavedState(self, true);
-                $log.debug("Entity: $save: create", self, itemToSave, response);
-                return self;
-            }, function (e) {
-                updateSavedState(self, false);
-                $log.error("Entity: $save: create", self, itemToSave, e);
-                return $q.reject(e);
-            });
+            self.$entity.saveInProgress = true;
+            var itemToSave = self.$model.preSave(self);
+
+            var updateSavedState = function (entity, succeeded) {
+                entity.$entity.saveInProgress = false;
+                if (succeeded !== false) {
+                    entity.$storeState();
+                    entity.$entity.persisted = true;
+                } else {
+                    entity.$reset();
+                }
+            };
+
+            // The model exists in the DB
+            if (self.$entity.persisted && itemToSave[self.$model.primaryKeyFieldName]) {
+                itemToSave = self.$model.preUpdate(itemToSave);
+
+                var pk = itemToSave[self.$model.primaryKeyFieldName];
+                self.$model.adapter.update(self.$model, pk, itemToSave, queryOptions).then(function (response) {
+                    var result = self.$model.transformResult(response.data);
+                    self.$model.extendFromRawObject(self, result);
+                    updateSavedState(self, true);
+                    $log.debug("Entity: $save: update", self, itemToSave, response);
+                    dfd.resolve(self);
+                }, function (e) {
+                    updateSavedState(self, false);
+                    $log.error("Entity: $save: update", self, itemToSave, e);
+                    dfd.reject(e);
+                });
+            } else {
+                // The model is new
+                itemToSave = self.$model.preCreate(itemToSave);
+                self.$model.adapter.create(self.$model, itemToSave, queryOptions).then(function (response) {
+                    var result = self.$model.transformResult(response.data);
+                    self.$model.extendFromRawObject(self, result);
+                    updateSavedState(self, true);
+                    $log.debug("Entity: $save: create", self, itemToSave, response);
+                    dfd.resolve(self);
+                }, function (e) {
+                    updateSavedState(self, false);
+                    $log.error("Entity: $save: create", self, itemToSave, e);
+                    dfd.reject(e);
+                });
+            }
+
+            return dfd.promise;
         };
 
         /**
@@ -221,8 +212,6 @@ angular.module('recall').factory("recallEntity", [
 
             this.$entity.lastDirtyCheck = new Date().getTime();
 
-            var raw = this.$model.getRawModelObject(this);
-
             // TODO: This does not dirty check associations
             var field;
             var viewValue;
@@ -230,7 +219,7 @@ angular.module('recall').factory("recallEntity", [
             for (field in this.$model.fields) {
                 if (this.$model.fields.hasOwnProperty(field)) {
                     storedValue = this.$entity.storedState[field];
-                    viewValue = raw[field];
+                    viewValue = this[field];
 
                     if (storedValue !== viewValue) {
                         $log.debug("Entity: $isDirty", this[this.$model.primaryKeyFieldName], true, delta);
@@ -255,10 +244,6 @@ angular.module('recall').factory("recallEntity", [
         Entity.prototype.$reset = function () {
             if (!this.$entity.storedState) {
                 this.$storeState();
-                return [];
-            }
-
-            if (!this.$isDirty()) {
                 return [];
             }
 

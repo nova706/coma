@@ -21,6 +21,7 @@ angular.module('recall').factory("recallModelField", [
                 this.notNull = false;
             } else {
                 this.type = definition.type;
+                this.validate = definition.validate;
                 this.primaryKey = definition.primaryKey === true;
                 this.unique = definition.unique === true;
                 this.index = (typeof definition.index === 'string') ? definition.index : (definition.index === true) ? name : false;

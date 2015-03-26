@@ -149,6 +149,7 @@ angular.module('recall').factory("recallModel", [
                     return this.associations[i];
                 }
             }
+            return null;
         };
 
         /**

@@ -1,3 +1,4 @@
+/*globals module*/
 module.exports = function(grunt) {
 
     grunt.initConfig({
@@ -31,6 +32,13 @@ module.exports = function(grunt) {
         karma: {
             main: {
                 configFile: './karma.conf.js'
+            },
+            server: {
+                configFile: './karma.conf.js',
+                preprocessors: {},
+                reporters: ['progress'],
+                browsers: ['Chrome'],
+                singleRun: false
             }
         }
     });
@@ -38,5 +46,5 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-karma');
 
-    grunt.registerTask('default', ['uglify', 'karma']);
+    grunt.registerTask('default', ['uglify', 'karma:main']);
 };

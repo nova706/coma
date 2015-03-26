@@ -1,4 +1,4 @@
-/*! recallTests 25-03-2015 */
+/*! recallTests 26-03-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
@@ -1236,7 +1236,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
     Entity.prototype.$expand = function(associationName) {
         var association = this.$model.getAssociationByAlias(associationName);
         if (!association) {
-            return $q.reject("Entity: $expand could not expand the association.");
+            return $q.reject("Entity: $expand could not find the association.");
         }
         return association.expand(this);
     };
@@ -1247,7 +1247,6 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
     Entity.prototype.$isValid = function() {
         // TODO: This does not validate associations
         var field;
-        var valid = true;
         var matchesType = false;
         var fieldIsUndefined;
         for (field in this.$model.fields) {
@@ -1278,16 +1277,13 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
                     $log.debug("Entity: $isValid returned false", "The type was not " + this.$model.fields[field].type, field, this);
                     return false;
                 }
-                if (typeof this.$model.fields[field].validate === "function") {
-                    valid = this.$model.fields[field].validate(this[field]);
-                    if (!valid) {
-                        $log.debug("Entity: $isValid returned false", "Custom validator failed", field, this);
-                        return false;
-                    }
+                if (typeof this.$model.fields[field].validate === "function" && !this.$model.fields[field].validate(this[field])) {
+                    $log.debug("Entity: $isValid returned false", "Custom validator failed", field, this);
+                    return false;
                 }
             }
         }
-        return valid;
+        return true;
     };
     /**
          * Persists the model with the adapter. This will update the model if it exists in the adapter or create
@@ -1298,58 +1294,55 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
          * @returns {promise} Resolves with the model
          */
     Entity.prototype.$save = function(queryOptions) {
+        var dfd = $q.defer();
         var self = this;
-        var itemToSave = self.$model.preSave(self);
-        self.$entity.saveInProgress = true;
-        var updateSavedState = function(entity, succeeded) {
-            if (succeeded !== false) {
-                self.$storeState();
-                self.$entity.persisted = true;
-                self.$entity.saveInProgress = false;
-            } else {
-                self.$reset();
-                self.$entity.saveInProgress = false;
-            }
-        };
-        // The model exists in the DB
-        if (self.$entity.persisted && itemToSave[self.$model.primaryKeyFieldName]) {
-            itemToSave = self.$model.preUpdate(itemToSave);
-            if (!self.$isValid()) {
-                $log.warn("Entity: $save: aborted", self, self[self.$model.primaryKeyFieldName]);
-                self.$reset();
-                return $q.reject("aborted");
-            }
-            var pk = itemToSave[self.$model.primaryKeyFieldName];
-            return self.$model.adapter.update(self.$model, pk, itemToSave, queryOptions).then(function(response) {
-                var result = self.$model.transformResult(response.data);
-                self.$model.extendFromRawObject(self, result);
-                updateSavedState(self, true);
-                $log.debug("Entity: $save: update", self, itemToSave, response);
-                return self;
-            }, function(e) {
-                updateSavedState(self, false);
-                $log.error("Entity: $save: update", self, itemToSave, e);
-                return $q.reject(e);
-            });
-        }
-        // The model is new
-        itemToSave = self.$model.preCreate(itemToSave);
         if (!self.$isValid()) {
             $log.warn("Entity: $save: aborted", self, self[self.$model.primaryKeyFieldName]);
             self.$reset();
             return $q.reject("aborted");
         }
-        return self.$model.adapter.create(self.$model, itemToSave, queryOptions).then(function(response) {
-            var result = self.$model.transformResult(response.data);
-            self.$model.extendFromRawObject(self, result);
-            updateSavedState(self, true);
-            $log.debug("Entity: $save: create", self, itemToSave, response);
-            return self;
-        }, function(e) {
-            updateSavedState(self, false);
-            $log.error("Entity: $save: create", self, itemToSave, e);
-            return $q.reject(e);
-        });
+        self.$entity.saveInProgress = true;
+        var itemToSave = self.$model.preSave(self);
+        var updateSavedState = function(entity, succeeded) {
+            entity.$entity.saveInProgress = false;
+            if (succeeded !== false) {
+                entity.$storeState();
+                entity.$entity.persisted = true;
+            } else {
+                entity.$reset();
+            }
+        };
+        // The model exists in the DB
+        if (self.$entity.persisted && itemToSave[self.$model.primaryKeyFieldName]) {
+            itemToSave = self.$model.preUpdate(itemToSave);
+            var pk = itemToSave[self.$model.primaryKeyFieldName];
+            self.$model.adapter.update(self.$model, pk, itemToSave, queryOptions).then(function(response) {
+                var result = self.$model.transformResult(response.data);
+                self.$model.extendFromRawObject(self, result);
+                updateSavedState(self, true);
+                $log.debug("Entity: $save: update", self, itemToSave, response);
+                dfd.resolve(self);
+            }, function(e) {
+                updateSavedState(self, false);
+                $log.error("Entity: $save: update", self, itemToSave, e);
+                dfd.reject(e);
+            });
+        } else {
+            // The model is new
+            itemToSave = self.$model.preCreate(itemToSave);
+            self.$model.adapter.create(self.$model, itemToSave, queryOptions).then(function(response) {
+                var result = self.$model.transformResult(response.data);
+                self.$model.extendFromRawObject(self, result);
+                updateSavedState(self, true);
+                $log.debug("Entity: $save: create", self, itemToSave, response);
+                dfd.resolve(self);
+            }, function(e) {
+                updateSavedState(self, false);
+                $log.error("Entity: $save: create", self, itemToSave, e);
+                dfd.reject(e);
+            });
+        }
+        return dfd.promise;
     };
     /**
          * Removes the model from the adapter.
@@ -1396,7 +1389,6 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
             return this.$entity.lastDirtyState;
         }
         this.$entity.lastDirtyCheck = new Date().getTime();
-        var raw = this.$model.getRawModelObject(this);
         // TODO: This does not dirty check associations
         var field;
         var viewValue;
@@ -1404,7 +1396,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
         for (field in this.$model.fields) {
             if (this.$model.fields.hasOwnProperty(field)) {
                 storedValue = this.$entity.storedState[field];
-                viewValue = raw[field];
+                viewValue = this[field];
                 if (storedValue !== viewValue) {
                     $log.debug("Entity: $isDirty", this[this.$model.primaryKeyFieldName], true, delta);
                     this.$entity.lastDirtyState = true;
@@ -1426,9 +1418,6 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
     Entity.prototype.$reset = function() {
         if (!this.$entity.storedState) {
             this.$storeState();
-            return [];
-        }
-        if (!this.$isDirty()) {
             return [];
         }
         var prop;
@@ -1680,6 +1669,7 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
                 return this.associations[i];
             }
         }
+        return null;
     };
     /**
          * Extends an entity with a raw object. The raw object could be input from a controller or the result from
@@ -1891,6 +1881,7 @@ angular.module("recall").factory("recallModelField", [ "$log", function($log) {
             this.notNull = false;
         } else {
             this.type = definition.type;
+            this.validate = definition.validate;
             this.primaryKey = definition.primaryKey === true;
             this.unique = definition.unique === true;
             this.index = typeof definition.index === "string" ? definition.index : definition.index === true ? name : false;
