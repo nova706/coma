@@ -1,4 +1,4 @@
-/*! recallTests 26-03-2015 */
+/*! recall 26-03-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {

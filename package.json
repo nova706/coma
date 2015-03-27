@@ -1,5 +1,5 @@
 {
-    "name": "recallTests",
+    "name": "recall",
     "description": "Persistent Entity Management for AngularJS",
     "version": "0.0.1",
     "private": true,
