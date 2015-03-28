@@ -615,7 +615,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
         // Applies a filter predicate to a set of results and returns an array of the matching results
         var applyFilter = function(results, filterPredicate) {
             if (filterPredicate && results) {
-                results.filter(function(a) {
+                results = results.filter(function(a) {
                     return resultMatchesFilters(a, filterPredicate);
                 });
             }
