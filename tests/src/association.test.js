@@ -93,6 +93,20 @@ describe("Association", function () {
             association.mappedBy.should.equal('id');
         });
 
+        it("Should set getOptions from the definition", function () {
+            var association = new Association({
+                getOptions: function () { return true; }
+            });
+            association.getOptions().should.equal(true);
+        });
+
+        it("Should set getOptions to return empty options if not defined in the definition", function () {
+            var association = new Association({
+                foreignKey: "id"
+            });
+            should.equal(typeof association.getOptions().$filter, 'function');
+        });
+
         it("Should set invalid if modelName, type, or mappedBy are not set", function () {
             var association = new Association({
                 type: "type",

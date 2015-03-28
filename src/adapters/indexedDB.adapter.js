@@ -576,6 +576,12 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                             }
                             cursor.continue();
                         } else {
+
+                            var filter = association.getOptions(result).$filter();
+                            if (filter) {
+                                results = applyFilter(results, filter);
+                            }
+
                             result[association.alias] = results;
                             if (pathsToExpand.length > 1) {
                                 var i;

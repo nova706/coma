@@ -26,6 +26,7 @@ angular.module('recall').factory("recallAssociation", [
             this.modelName = definition.modelName || definition.hasOne || definition.hasMany;
             this.alias = definition.as || definition.alias || this.modelName;
             this.mappedBy = definition.mappedBy || definition.foreignKey;
+            this.getOptions = definition.getOptions || function () { return new PreparedQueryOptions() };
 
             if (!this.modelName || !this.type || !this.mappedBy) {
                 $log.error('Association: The association definition is invalid', definition);
@@ -56,9 +57,11 @@ angular.module('recall').factory("recallAssociation", [
                 return $q.reject('Association: Expand could not find the association\'s Model');
             }
 
+            var queryOptions = self.getOptions(entity);
+
             if (self.type === 'hasOne') {
 
-                Model.adapter.findOne(Model, entity[self.mappedBy]).then(function (response) {
+                Model.adapter.findOne(Model, entity[self.mappedBy], queryOptions).then(function (response) {
                     entity[self.alias] = Model.getRawModelObject(response.data);
                     entity.$entity.storedState[self.alias] = Model.getRawModelObject(response.data);
                     $log.debug("Association: Expand", self.type, self.alias, entity, response);
@@ -71,7 +74,11 @@ angular.module('recall').factory("recallAssociation", [
             } else if (self.type === 'hasMany') {
 
                 var predicate = new Predicate(self.mappedBy).equals(entity.$getPrimaryKey());
-                var queryOptions = new PreparedQueryOptions().$filter(predicate);
+                var existingPredicate = queryOptions.$filter();
+                if (existingPredicate) {
+                    predicate = Predicate.and([predicate, existingPredicate]);
+                }
+                queryOptions.$filter(predicate);
 
                 Model.adapter.find(Model, queryOptions).then(function (response) {
                     var base = [];
