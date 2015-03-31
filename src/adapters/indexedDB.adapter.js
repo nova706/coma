@@ -536,19 +536,31 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                 // Expands a has one model association
                 var expandHasOne = function (model, result, association, tx, pathsToExpand) {
                     var dfd = $q.defer();
+
+                    if (result[association.mappedBy] === undefined) {
+                        result[association.mappedBy] = null;
+                        dfd.resolve();
+                        return dfd.promise;
+                    }
+
                     var store = tx.objectStore(model.dataSourceName);
                     var pathToExpand = pathsToExpand.join('.');
                     var req = store.get(result[association.mappedBy]);
 
                     req.onsuccess = function () {
-                        result[association.alias] = req.result;
-                        if (pathsToExpand.length > 1) {
-                            expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf('.') + 1), tx).then(function () {
+                        if (req.result && !req.result[model.deletedFieldName]) {
+                            result[association.alias] = req.result;
+                            if (pathsToExpand.length > 1) {
+                                expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf('.') + 1), tx).then(function () {
+                                    dfd.resolve();
+                                }, function (e) {
+                                    dfd.reject(e);
+                                });
+                            } else {
                                 dfd.resolve();
-                            }, function (e) {
-                                dfd.reject(e);
-                            });
+                            }
                         } else {
+                            result[association.alias] = null;
                             dfd.resolve();
                         }
                     };
@@ -571,7 +583,7 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                     req.onsuccess = function (event) {
                         var cursor = event.target.result;
                         if (cursor) {
-                            if (cursor.key === result[model.primaryKeyFieldName]) {
+                            if (!cursor.value[model.deletedFieldName] && cursor.key === result[model.primaryKeyFieldName]) {
                                 results.push(cursor.value);
                             }
                             cursor.continue();

@@ -241,16 +241,37 @@ angular.module('recall').factory("recallModel", [
 
         /**
          * Transforms all objects returned by adapter transactions. This calls the transformResult function defined
-         * in the model.
+         * in the model. This also recursively calls transformResult on all associations.
          *
          * @method transformResult
          * @param {Object} resultEntity
          * @returns {Object} The transformed result
          */
         Model.prototype.transformResult = function (resultEntity) {
+            var i;
+            var alias;
+            var ForeignModel;
+            var a;
+            for (i = 0; i < this.associations.length; i++) {
+                alias = this.associations[i].alias;
+                ForeignModel = this.associations[i].getModel();
+
+                if (this.associations[i].type === 'hasOne') {
+                    if (resultEntity[alias] !== undefined) {
+                        resultEntity[alias] = ForeignModel.transformResult(resultEntity[alias]);
+                    }
+                } else if (this.associations[i].type === 'hasMany') {
+                    if (resultEntity[alias] !== undefined && resultEntity[alias] instanceof Array) {
+                        for (a = 0; a < resultEntity[alias].length; a++) {
+                            resultEntity[alias][a] = ForeignModel.transformResult(resultEntity[alias][a]);
+                        }
+                    }
+                }
+            }
+
             resultEntity = this.getRawModelObject(resultEntity);
             if (typeof this.modelDefinition.transformResult === 'function') {
-                return this.modelDefinition.transformResult(resultEntity);
+                resultEntity = this.modelDefinition.transformResult(resultEntity);
             }
             return resultEntity;
         };

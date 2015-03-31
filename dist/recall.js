@@ -1,4 +1,4 @@
-/*! recall 28-03-2015 */
+/*! recall 31-03-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
@@ -500,18 +500,28 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
         // Expands a has one model association
         var expandHasOne = function(model, result, association, tx, pathsToExpand) {
             var dfd = $q.defer();
+            if (result[association.mappedBy] === undefined) {
+                result[association.mappedBy] = null;
+                dfd.resolve();
+                return dfd.promise;
+            }
             var store = tx.objectStore(model.dataSourceName);
             var pathToExpand = pathsToExpand.join(".");
             var req = store.get(result[association.mappedBy]);
             req.onsuccess = function() {
-                result[association.alias] = req.result;
-                if (pathsToExpand.length > 1) {
-                    expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), tx).then(function() {
+                if (req.result && !req.result[model.deletedFieldName]) {
+                    result[association.alias] = req.result;
+                    if (pathsToExpand.length > 1) {
+                        expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), tx).then(function() {
+                            dfd.resolve();
+                        }, function(e) {
+                            dfd.reject(e);
+                        });
+                    } else {
                         dfd.resolve();
-                    }, function(e) {
-                        dfd.reject(e);
-                    });
+                    }
                 } else {
+                    result[association.alias] = null;
                     dfd.resolve();
                 }
             };
@@ -531,7 +541,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             req.onsuccess = function(event) {
                 var cursor = event.target.result;
                 if (cursor) {
-                    if (cursor.key === result[model.primaryKeyFieldName]) {
+                    if (!cursor.value[model.deletedFieldName] && cursor.key === result[model.primaryKeyFieldName]) {
                         results.push(cursor.value);
                     }
                     cursor.continue();
@@ -1166,6 +1176,7 @@ angular.module("recall").factory("recallAssociation", [ "$injector", "$log", "$q
         if (self.type === "hasOne") {
             Model.adapter.findOne(Model, entity[self.mappedBy], queryOptions).then(function(response) {
                 entity[self.alias] = Model.getRawModelObject(response.data);
+                // TODO: The association should be an entity and should have transformResult called
                 entity.$entity.storedState[self.alias] = Model.getRawModelObject(response.data);
                 $log.debug("Association: Expand", self.type, self.alias, entity, response);
                 dfd.resolve();
@@ -1183,6 +1194,7 @@ angular.module("recall").factory("recallAssociation", [ "$injector", "$log", "$q
             Model.adapter.find(Model, queryOptions).then(function(response) {
                 var base = [];
                 var stored = [];
+                // TODO: The associations should be entities and should have transformResult called
                 var i;
                 for (i = 0; i < response.data.length; i++) {
                     base.push(Model.getRawModelObject(response.data[i]));
@@ -1229,6 +1241,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
         Object.defineProperty(this, "$model", {
             value: model
         });
+        this.$convertAssociationsToEntities();
         this.$storeState();
     };
     /**
@@ -1237,6 +1250,32 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
          */
     Entity.prototype.$getPrimaryKey = function() {
         return this[this.$model.primaryKeyFieldName];
+    };
+    /**
+         *
+         */
+    Entity.prototype.$convertAssociationsToEntities = function() {
+        var i;
+        var alias;
+        var ForeignModel;
+        var a;
+        for (i = 0; i < this.$model.associations.length; i++) {
+            alias = this.$model.associations[i].alias;
+            ForeignModel = this.$model.associations[i].getModel();
+            if (this.$model.associations[i].type === "hasOne") {
+                if (this[alias] !== undefined && !this[alias].$entity) {
+                    this[alias] = new ForeignModel.Entity(this[alias], this.$entity.persisted);
+                }
+            } else if (this.$model.associations[i].type === "hasMany") {
+                if (this[alias] !== undefined && this[alias] instanceof Array) {
+                    for (a = 0; a < this[alias].length; a++) {
+                        if (!this[alias].$entity) {
+                            this[alias][a] = new ForeignModel.Entity(this[alias][a], this.$entity.persisted);
+                        }
+                    }
+                }
+            }
+        }
     };
     /**
          * Expands a given association on an Entity
@@ -1281,7 +1320,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
                     break;
 
                   case "Date":
-                    matchesType = this[field] instanceof Date && !isNaN(Date.parse(this[field]));
+                    matchesType = this[field] instanceof Date || !isNaN(Date.parse(this[field]));
                     break;
                 }
                 if (!matchesType && !fieldIsUndefined) {
@@ -1376,7 +1415,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
          * @method $storeState
          */
     Entity.prototype.$storeState = function() {
-        this.$entity.storedState = this.$model.getRawModelObject(this);
+        this.$entity.storedState = this.$model.getRawModelObject(this, false);
         this.$entity.lastDirtyCheck = new Date().getTime();
         this.$entity.lastDirtyState = false;
     };
@@ -1768,16 +1807,35 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
     };
     /**
          * Transforms all objects returned by adapter transactions. This calls the transformResult function defined
-         * in the model.
+         * in the model. This also recursively calls transformResult on all associations.
          *
          * @method transformResult
          * @param {Object} resultEntity
          * @returns {Object} The transformed result
          */
     Model.prototype.transformResult = function(resultEntity) {
+        var i;
+        var alias;
+        var ForeignModel;
+        var a;
+        for (i = 0; i < this.associations.length; i++) {
+            alias = this.associations[i].alias;
+            ForeignModel = this.associations[i].getModel();
+            if (this.associations[i].type === "hasOne") {
+                if (resultEntity[alias] !== undefined) {
+                    resultEntity[alias] = ForeignModel.transformResult(resultEntity[alias]);
+                }
+            } else if (this.associations[i].type === "hasMany") {
+                if (resultEntity[alias] !== undefined && resultEntity[alias] instanceof Array) {
+                    for (a = 0; a < resultEntity[alias].length; a++) {
+                        resultEntity[alias][a] = ForeignModel.transformResult(resultEntity[alias][a]);
+                    }
+                }
+            }
+        }
         resultEntity = this.getRawModelObject(resultEntity);
         if (typeof this.modelDefinition.transformResult === "function") {
-            return this.modelDefinition.transformResult(resultEntity);
+            resultEntity = this.modelDefinition.transformResult(resultEntity);
         }
         return resultEntity;
     };

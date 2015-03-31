@@ -63,6 +63,7 @@ angular.module('recall').factory("recallAssociation", [
 
                 Model.adapter.findOne(Model, entity[self.mappedBy], queryOptions).then(function (response) {
                     entity[self.alias] = Model.getRawModelObject(response.data);
+                    // TODO: The association should be an entity and should have transformResult called
                     entity.$entity.storedState[self.alias] = Model.getRawModelObject(response.data);
                     $log.debug("Association: Expand", self.type, self.alias, entity, response);
                     dfd.resolve();
@@ -83,6 +84,7 @@ angular.module('recall').factory("recallAssociation", [
                 Model.adapter.find(Model, queryOptions).then(function (response) {
                     var base = [];
                     var stored = [];
+                    // TODO: The associations should be entities and should have transformResult called
                     var i;
                     for (i = 0; i < response.data.length; i++) {
                         base.push(Model.getRawModelObject(response.data[i]));

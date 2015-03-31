@@ -25,6 +25,7 @@ angular.module('recall').factory("recallEntity", [
             }});
             Object.defineProperty(this, "$model", {value: model});
 
+            this.$convertAssociationsToEntities();
             this.$storeState();
         };
 
@@ -34,6 +35,34 @@ angular.module('recall').factory("recallEntity", [
          */
         Entity.prototype.$getPrimaryKey = function () {
             return this[this.$model.primaryKeyFieldName];
+        };
+
+        /**
+         *
+         */
+        Entity.prototype.$convertAssociationsToEntities = function () {
+            var i;
+            var alias;
+            var ForeignModel;
+            var a;
+            for (i = 0; i < this.$model.associations.length; i++) {
+                alias = this.$model.associations[i].alias;
+                ForeignModel = this.$model.associations[i].getModel();
+
+                if (this.$model.associations[i].type === 'hasOne') {
+                    if (this[alias] !== undefined && !this[alias].$entity) {
+                        this[alias] = new ForeignModel.Entity(this[alias], this.$entity.persisted);
+                    }
+                } else if (this.$model.associations[i].type === 'hasMany') {
+                    if (this[alias] !== undefined && this[alias] instanceof Array) {
+                        for (a = 0; a < this[alias].length; a++) {
+                            if (!this[alias].$entity) {
+                                this[alias][a] = new ForeignModel.Entity(this[alias][a], this.$entity.persisted);
+                            }
+                        }
+                    }
+                }
+            }
         };
 
         /**
@@ -79,7 +108,7 @@ angular.module('recall').factory("recallEntity", [
                             matchesType = this[field] === true || this[field] === false;
                             break;
                         case 'Date':
-                            matchesType = this[field] instanceof Date && !isNaN(Date.parse(this[field]));
+                            matchesType = this[field] instanceof Date || !isNaN(Date.parse(this[field]));
                             break;
                     }
                     if (!matchesType && !fieldIsUndefined) {
@@ -183,7 +212,7 @@ angular.module('recall').factory("recallEntity", [
          * @method $storeState
          */
         Entity.prototype.$storeState = function () {
-            this.$entity.storedState = this.$model.getRawModelObject(this);
+            this.$entity.storedState = this.$model.getRawModelObject(this, false);
             this.$entity.lastDirtyCheck = new Date().getTime();
             this.$entity.lastDirtyState = false;
         };
