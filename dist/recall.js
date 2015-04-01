@@ -1,4 +1,4 @@
-/*! recall 31-03-2015 */
+/*! recall 01-04-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
@@ -1519,6 +1519,15 @@ angular.module("recall").factory("recallLocalStorage", [ "$document", "$window",
             key += "_" + modifier;
         }
         return key;
+    };
+    /**
+         * Register a new key with the local storage service.
+         * @param {String} key
+         */
+    storage.registerKey = function(key) {
+        if (!keyExists(key)) {
+            storage.keys[key] = key;
+        }
     };
     /**
          * Stores data by key in local browser storage.

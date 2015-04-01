@@ -37,6 +37,16 @@ angular.module('recall').factory('recallLocalStorage', [
         };
 
         /**
+         * Register a new key with the local storage service.
+         * @param {String} key
+         */
+        storage.registerKey = function (key) {
+            if (!keyExists(key)) {
+                storage.keys[key] = key;
+            }
+        };
+
+        /**
          * Stores data by key in local browser storage.
          *
          * @param {String} key The key to use as the local storage name. Must be a key found in localStorage.keys.
