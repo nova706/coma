@@ -29,6 +29,35 @@ describe("LocalStorage", function () {
         recallLocalStorage = _recallLocalStorage_;
     }));
 
+    describe("registerKey", function () {
+        beforeEach(inject(function () {
+            sinon.stub(fakeLocalStorage, 'getItem').returns("test");
+            sinon.stub(fakeLocalStorage, 'setItem');
+            sinon.stub(fakeLocalStorage, 'removeItem');
+        }));
+
+        it("Should allow the registration of custom keys", function () {
+            recallLocalStorage.set('test', '1');
+            $window.localStorage.setItem.called.should.equal(false);
+
+            recallLocalStorage.registerKey('test');
+
+            recallLocalStorage.set('test', '1');
+            $window.localStorage.setItem.called.should.equal(true);
+        });
+
+        it("Should allow the registration of an existing key", function () {
+            recallLocalStorage.set('test', '1');
+            $window.localStorage.setItem.called.should.equal(false);
+
+            recallLocalStorage.registerKey('test');
+            recallLocalStorage.registerKey('test');
+
+            recallLocalStorage.set('test', '1');
+            $window.localStorage.setItem.called.should.equal(true);
+        });
+    });
+
     describe("set", function () {
         beforeEach(inject(function () {
             sinon.stub(fakeLocalStorage, 'getItem').returns("test");

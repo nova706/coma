@@ -56,7 +56,7 @@ angular.module('recall').factory("recallEntity", [
                 } else if (this.$model.associations[i].type === 'hasMany') {
                     if (this[alias] !== undefined && this[alias] instanceof Array) {
                         for (a = 0; a < this[alias].length; a++) {
-                            if (!this[alias].$entity) {
+                            if (!this[alias][a].$entity) {
                                 this[alias][a] = new ForeignModel.Entity(this[alias][a], this.$entity.persisted);
                             }
                         }

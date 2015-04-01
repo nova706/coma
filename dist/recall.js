@@ -1188,7 +1188,7 @@ angular.module("recall").factory("recallAssociation", [ "$injector", "$log", "$q
             var predicate = new Predicate(self.mappedBy).equals(entity.$getPrimaryKey());
             var existingPredicate = queryOptions.$filter();
             if (existingPredicate) {
-                predicate = Predicate.and([ predicate, existingPredicate ]);
+                predicate = Predicate.join([ predicate, existingPredicate ]);
             }
             queryOptions.$filter(predicate);
             Model.adapter.find(Model, queryOptions).then(function(response) {
@@ -1269,7 +1269,7 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
             } else if (this.$model.associations[i].type === "hasMany") {
                 if (this[alias] !== undefined && this[alias] instanceof Array) {
                     for (a = 0; a < this[alias].length; a++) {
-                        if (!this[alias].$entity) {
+                        if (!this[alias][a].$entity) {
                             this[alias][a] = new ForeignModel.Entity(this[alias][a], this.$entity.persisted);
                         }
                     }

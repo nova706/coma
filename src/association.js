@@ -26,7 +26,7 @@ angular.module('recall').factory("recallAssociation", [
             this.modelName = definition.modelName || definition.hasOne || definition.hasMany;
             this.alias = definition.as || definition.alias || this.modelName;
             this.mappedBy = definition.mappedBy || definition.foreignKey;
-            this.getOptions = definition.getOptions || function () { return new PreparedQueryOptions() };
+            this.getOptions = definition.getOptions || function () { return new PreparedQueryOptions(); };
 
             if (!this.modelName || !this.type || !this.mappedBy) {
                 $log.error('Association: The association definition is invalid', definition);
@@ -77,7 +77,7 @@ angular.module('recall').factory("recallAssociation", [
                 var predicate = new Predicate(self.mappedBy).equals(entity.$getPrimaryKey());
                 var existingPredicate = queryOptions.$filter();
                 if (existingPredicate) {
-                    predicate = Predicate.and([predicate, existingPredicate]);
+                    predicate = Predicate.join([predicate, existingPredicate]);
                 }
                 queryOptions.$filter(predicate);
 

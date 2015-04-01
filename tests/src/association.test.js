@@ -7,12 +7,16 @@ describe("Association", function () {
     var $rootScope;
     var $q;
     var recallService;
+    var Predicate;
+    var PreparedQueryOptions;
 
-    beforeEach(inject(function (recallAssociation, _$rootScope_, _$q_, recall) {
+    beforeEach(inject(function (recallAssociation, _$rootScope_, _$q_, recall, recallPredicate, recallPreparedQueryOptions) {
         Association = recallAssociation;
         $rootScope = _$rootScope_;
         $q = _$q_;
         recallService = recall;
+        Predicate = recallPredicate;
+        PreparedQueryOptions = recallPreparedQueryOptions;
     }));
 
     describe("New Association", function () {
@@ -286,6 +290,28 @@ describe("Association", function () {
             $rootScope.$apply();
 
             rejected.should.equal(true);
+        });
+
+        it ("Should extend the predicate with the predicate found in the association's getOptions function", function () {
+            association.type = "hasMany";
+
+            association.getOptions = function () {
+                return new PreparedQueryOptions().$filter(new Predicate('test').equals(1));
+            };
+
+            var queryOptions;
+            sinon.stub(fakeAdapter, "find", function (model, options) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve(findResult);
+                return dfd.promise;
+            });
+
+            association.expand(entity);
+            $rootScope.$apply();
+
+            fakeAdapter.find.calledWith(fakeModel, queryOptions).should.equal(true);
+            queryOptions.$filter().parsePredicate().should.equal("modelId eq 'test' and test eq 1");
         });
 
         it("Should call find on the model if the association is of type: hasMany", function () {

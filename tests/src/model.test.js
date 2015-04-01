@@ -68,7 +68,8 @@ describe("Model", function () {
                     as: 'models',
                     foreignKey: 'otherModelId'
                 }
-            ]
+            ],
+            transformResult: function (o) { return o; }
         };
         foreignModel = new Model(otherModelDefinition);
     }));
@@ -419,11 +420,27 @@ describe("Model", function () {
     });
 
     describe("transformResult", function () {
-        it("Should return the raw object", function () {
-            var model = new Model(testModelDefinition);
+        var model;
+        var foreignModel;
+
+        beforeEach(inject(function (recall) {
+            model = new Model(testModelDefinition);
+            foreignModel = new Model(otherModelDefinition);
             model.initializeModelFields();
             model.initializeAssociations();
+            foreignModel.initializeModelFields();
+            foreignModel.initializeAssociations();
+            sinon.stub(recall, 'getModel', function (modelName) {
+                if (modelName === testModelDefinition.name) {
+                    return model;
+                }
+                if (modelName === otherModelDefinition.name) {
+                    return foreignModel;
+                }
+            });
+        }));
 
+        it("Should return the raw object", function () {
             var entity = {id: '1', other: 'other'};
             entity = model.transformResult(entity);
 
@@ -432,15 +449,54 @@ describe("Model", function () {
         });
 
         it("Should call transformResult on the model", function () {
-            var model = new Model(testModelDefinition);
-            model.initializeModelFields();
-            model.initializeAssociations();
             sinon.stub(model.modelDefinition, 'transformResult');
 
             var entity = {id: '1', other: 'other'};
             model.transformResult(entity);
 
             model.modelDefinition.transformResult.calledOnce.should.equal(true);
+        });
+
+        it("Should call transformResult recursively on hasOne associations", function () {
+            sinon.stub(model.modelDefinition, 'transformResult', function (e) {return e;});
+            sinon.stub(foreignModel.modelDefinition, 'transformResult', function (e) {return e;});
+
+            var entity = new model.Entity({
+                id: '1',
+                other: 'other',
+                model: {
+                    id: '2',
+                    test: 'test'
+                }
+            });
+            model.transformResult(entity);
+
+            model.modelDefinition.transformResult.calledOnce.should.equal(true);
+            foreignModel.modelDefinition.transformResult.calledOnce.should.equal(true);
+        });
+
+        it("Should call transformResult recursively on hasMany associations", function () {
+            sinon.stub(model.modelDefinition, 'transformResult', function (e) {return e;});
+            sinon.stub(foreignModel.modelDefinition, 'transformResult', function (e) {return e;});
+
+            var entity = new foreignModel.Entity({
+                id: '1',
+                test: 'test',
+                models: [
+                    {
+                        id: '2',
+                        number: 2
+                    },
+                    {
+                        id: '3',
+                        number: 3
+                    }
+                ]
+            });
+            foreignModel.transformResult(entity);
+
+            model.modelDefinition.transformResult.calledTwice.should.equal(true);
+            foreignModel.modelDefinition.transformResult.calledOnce.should.equal(true);
         });
     });
 

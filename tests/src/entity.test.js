@@ -2,7 +2,8 @@
 describe("Entity", function () {
 
     var Entity;
-    var testModel;
+    var personModel;
+    var phoneNumberModel;
     var testAdapter;
     var $rootScope;
     var $q;
@@ -56,6 +57,25 @@ describe("Entity", function () {
         ]
     };
 
+    var phoneNumberModelDefinition = {
+        name: "phoneNumber",
+        dataSourceName: "people",
+        fields: {
+            id: {
+                primaryKey: true,
+                type: "String"
+            },
+            number: "String"
+        },
+        associations: [
+            {
+                hasOne: 'person',
+                as: 'person',
+                mappedBy: 'personId'
+            }
+        ]
+    };
+
     beforeEach(module('recall'));
 
     beforeEach(inject(function(_$rootScope_, _$q_, recall, recallEntity) {
@@ -69,19 +89,20 @@ describe("Entity", function () {
             update: resolvedPromiseFunction,
             remove: resolvedPromiseFunction
         };
-        testModel = recall.defineModel(personModelDefinition, testAdapter);
+        personModel = recall.defineModel(personModelDefinition, testAdapter);
+        phoneNumberModel = recall.defineModel(phoneNumberModelDefinition, testAdapter);
         fieldValidatorResponse = true;
     }));
 
     describe("New Entity", function () {
         it("Should extend the entity with the object passed in", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
 
             entity.id.should.equal('1');
         });
 
         it("Should initialize the $entity properties", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
 
             isWithinRange(entity.$entity.lastDirtyCheck, new Date().getTime(), 100).should.equal(true);
             entity.$entity.lastDirtyState.should.equal(false);
@@ -90,21 +111,55 @@ describe("Entity", function () {
         });
 
         it("Should add the model as a reference on the entity", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
 
-            entity.$model.should.equal(testModel);
+            entity.$model.should.equal(personModel);
         });
 
         it("Should store the state of the entity", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
 
             entity.$entity.storedState.id.should.equal('1');
+        });
+
+        it("Should convert the associations to entities", function () {
+            var entity = new Entity({
+                id: '1',
+                phoneNumbers: [
+                    { id: '1', number: '555-555-5555'}
+                ]
+            }, personModel);
+
+            entity.phoneNumbers[0].$entity.storedState.number.should.equal('555-555-5555');
+
+            var phoneNumber = new Entity({ id: '1', number: '555-555-5555'}, phoneNumberModel);
+            entity = new Entity({
+                id: '1',
+                phoneNumbers: [phoneNumber]
+            }, personModel);
+
+            entity.phoneNumbers[0].$entity.storedState.number.should.equal('555-555-5555');
+
+            entity = new Entity({
+                id: '1',
+                person: { id: '1', firstName: 'John'}
+            }, phoneNumberModel);
+
+            entity.person.$entity.storedState.firstName.should.equal('John');
+
+            var person = new Entity({ id: '1', firstName: 'John'}, personModel);
+            entity = new Entity({
+                id: '1',
+                person: person
+            }, phoneNumberModel);
+
+            entity.person.$entity.storedState.firstName.should.equal('John');
         });
     });
 
     describe("$getPrimaryKey", function () {
         it("Should return the primary key of the entity", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
 
             entity.$getPrimaryKey().should.equal('1');
         });
@@ -112,7 +167,7 @@ describe("Entity", function () {
 
     describe("$expand", function () {
         it("Should get the association", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
 
             sinon.stub(entity.$model, "getAssociationByAlias").returns(null);
             entity.$expand('test');
@@ -121,7 +176,7 @@ describe("Entity", function () {
         });
 
         it("Should reject if the association does not exist", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
             var rejected = false;
 
             entity.$expand('test').then(null, function () {
@@ -133,7 +188,7 @@ describe("Entity", function () {
         });
 
         it("Should call expand on the association", function () {
-            var entity = new Entity({id: '1'}, testModel);
+            var entity = new Entity({id: '1'}, personModel);
             var expandCalled = false;
 
             var association = {
@@ -158,7 +213,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$isValid().should.equal(true);
         });
@@ -171,7 +226,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$isValid().should.equal(false);
         });
@@ -183,7 +238,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$isValid().should.equal(false);
         });
@@ -196,7 +251,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$isValid().should.equal(false);
         });
@@ -209,7 +264,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: '21',
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$isValid().should.equal(false);
         });
@@ -222,7 +277,7 @@ describe("Entity", function () {
                 awesome: 'true',
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$isValid().should.equal(false);
         });
@@ -234,10 +289,23 @@ describe("Entity", function () {
                 lastName: 'Doe',
                 awesome: true,
                 age: 21,
-                added: '2015-3-10'
-            }, testModel);
+                added: 'some string'
+            }, personModel);
 
             entity.$isValid().should.equal(false);
+        });
+
+        it("Should return true if a Date field can be parsed as a Date", function () {
+            var entity = new Entity({
+                id: '1',
+                firstName: 'John',
+                lastName: 'Doe',
+                awesome: true,
+                age: 21,
+                added: '2015-04-01T10:48:13.311-06:00'
+            }, personModel);
+
+            entity.$isValid().should.equal(true);
         });
 
         it("Should return false if a custom validator fails", function () {
@@ -248,7 +316,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
             fieldValidatorResponse = false;
 
             entity.$isValid().should.equal(false);
@@ -265,7 +333,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             entity.$save().then(null, function () {
                 rejected = true;
@@ -283,7 +351,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             entity.$save();
 
@@ -298,7 +366,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             sinon.stub(entity.$model, "preSave").returns({id: '1'});
 
@@ -315,7 +383,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             sinon.stub(entity.$model, "preUpdate").returns({id: '1'});
 
@@ -332,7 +400,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             var itemToSave = {id: '1'};
             var options = {};
@@ -345,7 +413,7 @@ describe("Entity", function () {
 
             entity.$save(options);
 
-            entity.$model.adapter.update.calledWith(testModel, '1', itemToSave, options).should.equal(true);
+            entity.$model.adapter.update.calledWith(personModel, '1', itemToSave, options).should.equal(true);
         });
 
         it("Should call transformResult on update", function () {
@@ -356,7 +424,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             var response = {
                 data: 'data'
@@ -382,7 +450,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             var response = {
                 data: 'data'
@@ -408,7 +476,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             entity.firstName = 'Steve';
             var response = {
@@ -438,7 +506,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             entity.firstName = 'Steve';
             sinon.stub(entity.$model.adapter, "update", function (model, pk, itemToSave) {
@@ -463,7 +531,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             sinon.stub(entity.$model, "preCreate").returns({id: '1'});
 
@@ -480,7 +548,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             var itemToSave = {id: '1'};
             var options = {};
@@ -493,7 +561,7 @@ describe("Entity", function () {
 
             entity.$save(options);
 
-            entity.$model.adapter.create.calledWith(testModel, itemToSave, options).should.equal(true);
+            entity.$model.adapter.create.calledWith(personModel, itemToSave, options).should.equal(true);
         });
 
         it("Should call transformResult on create", function () {
@@ -504,7 +572,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             var response = {
                 data: 'data'
@@ -530,7 +598,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             var response = {
                 data: 'data'
@@ -556,7 +624,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             sinon.stub(entity.$model.adapter, "create", function (model, itemToSave) {
@@ -581,7 +649,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             sinon.stub(entity.$model.adapter, "create", function (model, itemToSave) {
@@ -606,7 +674,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
 
             sinon.stub(entity.$model.adapter, "remove", function (model, pk, options) {
                 var dfd = $q.defer();
@@ -627,7 +695,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel, true);
+            }, personModel, true);
             var rejected = false;
 
             entity.$remove().then(null, function () {
@@ -648,7 +716,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             entity.$storeState();
@@ -664,12 +732,30 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.otherProp = 'test';
             entity.$storeState();
 
             should.equal(undefined, entity.$entity.storedState.otherProp);
+        });
+
+        it("Should not store associations", function () {
+            var entity = new Entity({
+                id: '1',
+                firstName: 'John',
+                lastName: 'Doe',
+                awesome: true,
+                age: 21,
+                added: new Date(),
+                phoneNumbers: [
+                    {id: '1', number: '555-555-5555'}
+                ]
+            }, personModel);
+
+            entity.$storeState();
+
+            should.equal(undefined, entity.$entity.storedState.phoneNumbers);
         });
 
         it("Should reset the dirty state", function () {
@@ -680,7 +766,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             entity.$entity.lastDirtyCheck = 'test';
@@ -701,7 +787,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$entity.saveInProgress = true;
             entity.$isDirty().should.equal(false);
@@ -715,7 +801,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$entity.storedState = undefined;
             entity.$isDirty().should.equal(false);
@@ -729,7 +815,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$entity.lastDirtyState = 'test';
             entity.$isDirty().should.equal('test');
@@ -747,7 +833,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$entity.lastDirtyState = 'test';
             entity.$entity.lastDirtyCheck = new Date(new Date().getTime() - 100);
@@ -765,7 +851,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             entity.$entity.lastDirtyState = 'test';
@@ -781,7 +867,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$entity.lastDirtyState = 'test';
             entity.$entity.lastDirtyCheck = new Date(new Date().getTime() - 100);
@@ -798,7 +884,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             delete entity.$entity.storedState;
             entity.firstName = 'Steve';
@@ -816,7 +902,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             entity.$reset();
@@ -832,7 +918,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.$entity.lastDirtyCheck = 'test';
             entity.$entity.lastDirtyState = 'test';
@@ -850,7 +936,7 @@ describe("Entity", function () {
                 awesome: true,
                 age: 21,
                 added: new Date()
-            }, testModel);
+            }, personModel);
 
             entity.firstName = 'Steve';
             var result = entity.$reset();
