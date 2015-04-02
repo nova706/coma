@@ -13,39 +13,67 @@ angular.module('recall').factory("recallModelField", [
             this.invalid = false;
             this.name = name;
 
-            if (typeof definition === 'string') {
-                this.type = definition;
-                this.primaryKey = false;
-                this.unique = false;
-                this.index = false;
-                this.notNull = false;
-            } else {
-                this.type = definition.type;
-                this.validate = definition.validate;
-                this.primaryKey = definition.primaryKey === true;
-                this.unique = definition.unique === true;
-                this.index = (typeof definition.index === 'string') ? definition.index : (definition.index === true) ? name : false;
-                this.notNull = definition.notNull === true;
+            this.primaryKey = false;
+            this.unique = false;
+            this.index = false;
+            this.notNull = false;
 
-                if (typeof definition.getDefaultValue === 'function') {
-                    this.getDefaultValue = definition.getDefaultValue;
-                }
+            if (typeof definition === 'string') {
+                this.type = definition.toUpperCase();
+            } else if (definition.primaryKey === true) {
+                asPrimaryKey(this, definition);
+            } else {
+                fromDefinition(this, definition);
             }
 
+            if (!this.validateField()) {
+                $log.error('ModelField: The field definition is invalid', this, definition);
+            }
+        };
+
+        ModelField.prototype.validateField = function () {
+            if (!this.name || !this.type) {
+                this.invalid = true;
+                return false;
+            }
+            if (this.name.match(/[^\w+]/) !== null) {
+                this.invalid = true;
+                return false;
+            }
+            this.invalid = false;
+            return true;
+        };
+
+        var asPrimaryKey = function (field, definition) {
             // The adapter or the adapter's handler should enforce uniqueness of the primary key.
             // The index on the primary key should be handled automatically without needing to specify an index.
             // In order to pass validation during creation, the primary key should not be set as notNull.
             // This of course should be enforced by the adapter or the adapter's handler.
-            if (this.primaryKey) {
-                this.notNull = false;
-                this.unique = false;
-                this.index = false;
-            }
+            field.primaryKey = true;
+            field.type = definition.type ? definition.type.toUpperCase() : null;
+            field.notNull = false;
+            field.unique = false;
+            field.index = false;
 
-            // TODO: Better field validation
-            if (!this.name || !this.type) {
-                this.invalid = true;
-                $log.error('ModelField: The field definition is invalid', this, definition);
+            if (typeof definition.getDefaultValue === 'function') {
+                $log.warn('ModelField: getDefaultValue is ignored for the primary key');
+            }
+            if (typeof definition.validate === 'function') {
+                $log.warn('ModelField: validate is ignored for the primary key');
+            }
+        };
+
+        var fromDefinition = function (field, definition) {
+            field.type = definition.type ? definition.type.toUpperCase() : null;
+            field.unique = definition.unique === true;
+            field.index = (typeof definition.index === 'string') ? definition.index : (definition.index === true) ? field.name : false;
+            field.notNull = definition.notNull === true;
+
+            if (typeof definition.getDefaultValue === 'function') {
+                field.getDefaultValue = definition.getDefaultValue;
+            }
+            if (typeof definition.validate === 'function') {
+                field.validate = definition.validate;
             }
         };
 

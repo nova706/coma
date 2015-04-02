@@ -130,7 +130,7 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                     return dfd.promise;
                 };
 
-                // TODO: Cascade Delete: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
+                // TODO: Cascade Create: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
                 /**
                  * Creates a new Entity
                  * @param {Object} theModel The model of the entity to create

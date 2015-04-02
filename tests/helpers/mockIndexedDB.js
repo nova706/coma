@@ -54,7 +54,7 @@ window.MockIndexedDB = function ($timeout) {
                 if (rejectTransaction) {
                     toReturn.onerror(toReturn);
                 } else {
-                    toReturn.onsuccess(toReturn);
+                    toReturn.onsuccess(instance);
                 }
             });
 
@@ -177,14 +177,20 @@ window.MockIndexedDB = function ($timeout) {
     };
 
     return {
-        rejectConnection: function () {
-            rejectConnection = true;
-        },
-        rejectTransaction: function () {
-            rejectTransaction = true;
-        },
-        setTransactionResult: function (result) {
-            transactionResult = result;
+        api: {
+            rejectConnection: function () {
+                rejectConnection = true;
+            },
+            rejectTransaction: function () {
+                rejectTransaction = true;
+            },
+            setTransactionResult: function (result) {
+                transactionResult = result;
+            },
+            mockIndex: mockIndex,
+            mockObjectStore: mockObjectStore,
+            mockTransaction: mockTransaction,
+            mockDatabase: mockDatabase
         },
         open: function () {
             var toReturn = {

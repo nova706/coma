@@ -275,45 +275,45 @@ describe("Recall Service", function () {
             var personModel = service.defineModel(personModelDefinition);
             var phoneNumberModel = service.defineModel(phoneNumberModelDefinition);
 
-            personModel.fields.id.type.should.equal("String");
+            personModel.fields.id.type.should.equal("STRING");
             personModel.fields.id.primaryKey.should.equal(true);
             personModel.fields.id.unique.should.equal(false);
             personModel.fields.id.index.should.equal(false);
             personModel.fields.id.notNull.should.equal(false);
 
-            personModel.fields.firstName.type.should.equal("String");
+            personModel.fields.firstName.type.should.equal("STRING");
             personModel.fields.firstName.primaryKey.should.equal(false);
             personModel.fields.firstName.unique.should.equal(false);
             personModel.fields.firstName.index.should.equal("firstName");
             personModel.fields.firstName.notNull.should.equal(true);
 
-            personModel.fields.lastName.type.should.equal("String");
+            personModel.fields.lastName.type.should.equal("STRING");
             personModel.fields.lastName.primaryKey.should.equal(false);
             personModel.fields.lastName.unique.should.equal(false);
             personModel.fields.lastName.index.should.equal(false);
             personModel.fields.lastName.notNull.should.equal(false);
             should.equal(typeof personModel.fields.lastName.validate, 'function');
 
-            personModel.fields.added.type.should.equal("Date");
+            personModel.fields.added.type.should.equal("DATE");
             personModel.fields.added.primaryKey.should.equal(false);
             personModel.fields.added.unique.should.equal(false);
             personModel.fields.added.index.should.equal("added");
             personModel.fields.added.notNull.should.equal(false);
             should.equal(typeof personModel.fields.added.getDefaultValue, 'function');
 
-            phoneNumberModel.fields.id.type.should.equal("String");
+            phoneNumberModel.fields.id.type.should.equal("STRING");
             phoneNumberModel.fields.id.primaryKey.should.equal(true);
             phoneNumberModel.fields.id.unique.should.equal(false);
             phoneNumberModel.fields.id.index.should.equal(false);
             phoneNumberModel.fields.id.notNull.should.equal(false);
 
-            phoneNumberModel.fields.number.type.should.equal("String");
+            phoneNumberModel.fields.number.type.should.equal("STRING");
             phoneNumberModel.fields.number.primaryKey.should.equal(false);
             phoneNumberModel.fields.number.unique.should.equal(false);
             phoneNumberModel.fields.number.index.should.equal(false);
             phoneNumberModel.fields.number.notNull.should.equal(false);
 
-            phoneNumberModel.fields.primary.type.should.equal("Boolean");
+            phoneNumberModel.fields.primary.type.should.equal("BOOLEAN");
             phoneNumberModel.fields.primary.primaryKey.should.equal(false);
             phoneNumberModel.fields.primary.unique.should.equal(false);
             phoneNumberModel.fields.primary.index.should.equal("primary");
@@ -323,7 +323,7 @@ describe("Recall Service", function () {
         it("Should initialize the model association hasOne fields", function () {
             var phoneNumberModel = service.defineModel(phoneNumberModelDefinition);
 
-            phoneNumberModel.fields.personId.type.should.equal("String");
+            phoneNumberModel.fields.personId.type.should.equal("STRING");
             phoneNumberModel.fields.personId.primaryKey.should.equal(false);
             phoneNumberModel.fields.personId.unique.should.equal(false);
             phoneNumberModel.fields.personId.index.should.equal("personId");

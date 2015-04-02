@@ -6,7 +6,7 @@ angular.module('recall').factory("recallAdapterResponse", [
          * resolve and reject with a properly formed AdapterResponse so that the Model can handle the response.
          *
          * @param {Object|Array|String} data The raw data from the adapter or an error message
-         * @param {Number} [count=0] The number of records affected by the action
+         * @param {Number} [count] The number of records affected by the action. Left null if not set
          * @param {Number} [status=200] The status of the response
          * @param {Object} [headers] The response headers (used by $http)
          * @param {Object} [config] The configuration of the request (used by $http)
@@ -14,7 +14,7 @@ angular.module('recall').factory("recallAdapterResponse", [
          */
         var AdapterResponse = function (data, count, status, headers, config) {
             this.data = data;
-            this.count = count || 0;
+            this.count = (count >= 0) ? count : null;
             this.status = status || AdapterResponse.OK;
             this.headers = headers;
             this.config = config;

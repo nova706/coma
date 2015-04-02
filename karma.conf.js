@@ -26,7 +26,7 @@ module.exports = function (config) {
             ]
         },
 
-        reporters: ['progress', 'coverage'],
+        reporters: ['dots', 'coverage'],
 
         colors: true,
 

@@ -125,9 +125,7 @@ angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataREST
                             var totalCount;
 
                             if (providerConfig.resultsField) {
-                                if (data[providerConfig.resultsField]) {
-                                    results = data[providerConfig.resultsField];
-                                }
+                                results = data[providerConfig.resultsField];
                                 if (providerConfig.totalCountFiled && data[providerConfig.totalCountFiled]) {
                                     totalCount = data[providerConfig.totalCountFiled];
                                 }
@@ -217,6 +215,7 @@ angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataREST
                  * Takes an Array of entities and creates/updates/deletes them
                  * @param {Object} theModel The model of the entities to synchronize
                  * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @param {String} lastSync An ISO Date String representing the last sync
                  * @returns {promise} Resolved with an AdapterResponse
                  */
                 adapter.synchronize = function (theModel, dataToSync, lastSync) {
@@ -231,9 +230,7 @@ angular.module('recall.adapter.oDataREST', ['recall']).provider('recallODataREST
                             var totalCount;
 
                             if (providerConfig.resultsField) {
-                                if (data[providerConfig.resultsField]) {
-                                    results = data[providerConfig.resultsField];
-                                }
+                                results = data[providerConfig.resultsField];
                                 if (providerConfig.totalCountFiled && data[providerConfig.totalCountFiled]) {
                                     totalCount = data[providerConfig.totalCountFiled];
                                 }

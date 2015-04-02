@@ -7,7 +7,7 @@ angular.module("recall").factory("recallAdapterResponse", [ function() {
          * resolve and reject with a properly formed AdapterResponse so that the Model can handle the response.
          *
          * @param {Object|Array|String} data The raw data from the adapter or an error message
-         * @param {Number} [count=0] The number of records affected by the action
+         * @param {Number} [count] The number of records affected by the action. Left null if not set
          * @param {Number} [status=200] The status of the response
          * @param {Object} [headers] The response headers (used by $http)
          * @param {Object} [config] The configuration of the request (used by $http)
@@ -15,7 +15,7 @@ angular.module("recall").factory("recallAdapterResponse", [ function() {
          */
     var AdapterResponse = function(data, count, status, headers, config) {
         this.data = data;
-        this.count = count || 0;
+        this.count = count >= 0 ? count : null;
         this.status = status || AdapterResponse.OK;
         this.headers = headers;
         this.config = config;
@@ -140,7 +140,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             }
             return dfd.promise;
         };
-        // TODO: Cascade Delete: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
+        // TODO: Cascade Create: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Creates a new Entity
                  * @param {Object} theModel The model of the entity to create
@@ -726,9 +726,7 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
                 var results = data;
                 var totalCount;
                 if (providerConfig.resultsField) {
-                    if (data[providerConfig.resultsField]) {
-                        results = data[providerConfig.resultsField];
-                    }
+                    results = data[providerConfig.resultsField];
                     if (providerConfig.totalCountFiled && data[providerConfig.totalCountFiled]) {
                         totalCount = data[providerConfig.totalCountFiled];
                     }
@@ -803,6 +801,7 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
                  * Takes an Array of entities and creates/updates/deletes them
                  * @param {Object} theModel The model of the entities to synchronize
                  * @param {Array} dataToSync An array of objects to create/update/delete
+                 * @param {String} lastSync An ISO Date String representing the last sync
                  * @returns {promise} Resolved with an AdapterResponse
                  */
         adapter.synchronize = function(theModel, dataToSync, lastSync) {
@@ -816,9 +815,7 @@ angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRE
                 var results = data;
                 var totalCount;
                 if (providerConfig.resultsField) {
-                    if (data[providerConfig.resultsField]) {
-                        results = data[providerConfig.resultsField];
-                    }
+                    results = data[providerConfig.resultsField];
                     if (providerConfig.totalCountFiled && data[providerConfig.totalCountFiled]) {
                         totalCount = data[providerConfig.totalCountFiled];
                     }
@@ -1273,24 +1270,24 @@ angular.module("recall").factory("recallEntity", [ "$log", "$q", function($log, 
                     return false;
                 }
                 switch (this.$model.fields[field].type) {
-                  case "String":
+                  case "STRING":
                     matchesType = typeof this[field] === "string";
                     break;
 
-                  case "Number":
+                  case "NUMBER":
                     matchesType = typeof this[field] === "number";
                     break;
 
-                  case "Boolean":
+                  case "BOOLEAN":
                     matchesType = this[field] === true || this[field] === false;
                     break;
 
-                  case "Date":
+                  case "DATE":
                     matchesType = this[field] instanceof Date || !isNaN(Date.parse(this[field]));
                     break;
                 }
                 if (!matchesType && !fieldIsUndefined) {
-                    $log.debug("Entity: $isValid returned false", "The type was not " + this.$model.fields[field].type, field, this);
+                    $log.debug("Entity: $isValid returned false", field + " was not a " + this.$model.fields[field].type, this);
                     return false;
                 }
                 if (typeof this.$model.fields[field].validate === "function" && !this.$model.fields[field].validate(this[field])) {
@@ -1646,23 +1643,23 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
                 }
             }
         }
-        if (lastModifiedField && lastModifiedField.type !== "Date") {
+        if (lastModifiedField && lastModifiedField.type !== "DATE") {
             $log.error("Model: The last modified field is not a Date field");
             return false;
         }
         if (this.lastModifiedFieldName && !lastModifiedField) {
             this.fields[this.lastModifiedFieldName] = new ModelField(this.lastModifiedFieldName, {
-                type: "Date",
+                type: "DATE",
                 index: true
             });
         }
-        if (deletedField && deletedField.type !== "Boolean") {
+        if (deletedField && deletedField.type !== "BOOLEAN") {
             $log.error("Model: The deletedField field is not a Boolean field");
             return false;
         }
         if (this.deletedFieldName && !deletedField) {
             this.fields[this.deletedFieldName] = new ModelField(this.deletedFieldName, {
-                type: "Boolean",
+                type: "BOOLEAN",
                 index: true
             });
         }
@@ -1931,36 +1928,60 @@ angular.module("recall").factory("recallModelField", [ "$log", function($log) {
     var ModelField = function(name, definition) {
         this.invalid = false;
         this.name = name;
+        this.primaryKey = false;
+        this.unique = false;
+        this.index = false;
+        this.notNull = false;
         if (typeof definition === "string") {
-            this.type = definition;
-            this.primaryKey = false;
-            this.unique = false;
-            this.index = false;
-            this.notNull = false;
+            this.type = definition.toUpperCase();
+        } else if (definition.primaryKey === true) {
+            asPrimaryKey(this, definition);
         } else {
-            this.type = definition.type;
-            this.validate = definition.validate;
-            this.primaryKey = definition.primaryKey === true;
-            this.unique = definition.unique === true;
-            this.index = typeof definition.index === "string" ? definition.index : definition.index === true ? name : false;
-            this.notNull = definition.notNull === true;
-            if (typeof definition.getDefaultValue === "function") {
-                this.getDefaultValue = definition.getDefaultValue;
-            }
+            fromDefinition(this, definition);
         }
+        if (!this.validateField()) {
+            $log.error("ModelField: The field definition is invalid", this, definition);
+        }
+    };
+    ModelField.prototype.validateField = function() {
+        if (!this.name || !this.type) {
+            this.invalid = true;
+            return false;
+        }
+        if (this.name.match(/[^\w+]/) !== null) {
+            this.invalid = true;
+            return false;
+        }
+        this.invalid = false;
+        return true;
+    };
+    var asPrimaryKey = function(field, definition) {
         // The adapter or the adapter's handler should enforce uniqueness of the primary key.
         // The index on the primary key should be handled automatically without needing to specify an index.
         // In order to pass validation during creation, the primary key should not be set as notNull.
         // This of course should be enforced by the adapter or the adapter's handler.
-        if (this.primaryKey) {
-            this.notNull = false;
-            this.unique = false;
-            this.index = false;
+        field.primaryKey = true;
+        field.type = definition.type ? definition.type.toUpperCase() : null;
+        field.notNull = false;
+        field.unique = false;
+        field.index = false;
+        if (typeof definition.getDefaultValue === "function") {
+            $log.warn("ModelField: getDefaultValue is ignored for the primary key");
         }
-        // TODO: Better field validation
-        if (!this.name || !this.type) {
-            this.invalid = true;
-            $log.error("ModelField: The field definition is invalid", this, definition);
+        if (typeof definition.validate === "function") {
+            $log.warn("ModelField: validate is ignored for the primary key");
+        }
+    };
+    var fromDefinition = function(field, definition) {
+        field.type = definition.type ? definition.type.toUpperCase() : null;
+        field.unique = definition.unique === true;
+        field.index = typeof definition.index === "string" ? definition.index : definition.index === true ? field.name : false;
+        field.notNull = definition.notNull === true;
+        if (typeof definition.getDefaultValue === "function") {
+            field.getDefaultValue = definition.getDefaultValue;
+        }
+        if (typeof definition.validate === "function") {
+            field.validate = definition.validate;
         }
     };
     return ModelField;

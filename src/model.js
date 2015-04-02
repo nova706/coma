@@ -95,23 +95,23 @@ angular.module('recall').factory("recallModel", [
                     }
                 }
             }
-            if (lastModifiedField && lastModifiedField.type !== "Date") {
+            if (lastModifiedField && lastModifiedField.type !== "DATE") {
                 $log.error('Model: The last modified field is not a Date field');
                 return false;
             }
             if (this.lastModifiedFieldName && !lastModifiedField) {
                 this.fields[this.lastModifiedFieldName] = new ModelField(this.lastModifiedFieldName, {
-                    type: "Date",
+                    type: "DATE",
                     index: true
                 });
             }
-            if (deletedField && deletedField.type !== "Boolean") {
+            if (deletedField && deletedField.type !== "BOOLEAN") {
                 $log.error('Model: The deletedField field is not a Boolean field');
                 return false;
             }
             if (this.deletedFieldName && !deletedField) {
                 this.fields[this.deletedFieldName] = new ModelField(this.deletedFieldName, {
-                    type: "Boolean",
+                    type: "BOOLEAN",
                     index: true
                 });
             }

@@ -155,11 +155,11 @@ describe("Model", function () {
             model.initializeModelFields();
 
             model.fields.id.name.should.equal('id');
-            model.fields.id.type.should.equal('String');
+            model.fields.id.type.should.equal('STRING');
             model.fields.number.name.should.equal('number');
-            model.fields.number.type.should.equal('Number');
+            model.fields.number.type.should.equal('NUMBER');
             model.fields.boolean.name.should.equal('boolean');
-            model.fields.boolean.type.should.equal('Boolean');
+            model.fields.boolean.type.should.equal('BOOLEAN');
         });
 
         it("Should return false if a field is invalid", function () {
@@ -184,7 +184,7 @@ describe("Model", function () {
             model.setLastModifiedFieldName("lastModified");
             model.initializeModelFields();
 
-            model.fields.lastModified.type.should.equal('Date');
+            model.fields.lastModified.type.should.equal('DATE');
             model.fields.lastModified.index.should.equal('lastModified');
         });
 
@@ -202,7 +202,7 @@ describe("Model", function () {
             model.setDeletedFieldName("deleted");
             model.initializeModelFields();
 
-            model.fields.deleted.type.should.equal('Boolean');
+            model.fields.deleted.type.should.equal('BOOLEAN');
             model.fields.deleted.index.should.equal('deleted');
         });
     });
@@ -268,7 +268,7 @@ describe("Model", function () {
             model.initializeModelFields();
             model.initializeAssociations();
 
-            model.fields.modelId.type.should.equal('String');
+            model.fields.modelId.type.should.equal('STRING');
             model.fields.modelId.index.should.equal('modelId');
         });
 
@@ -278,7 +278,7 @@ describe("Model", function () {
             model.initializeModelFields();
             model.initializeAssociations();
 
-            model.fields.modelId.type.should.equal('String');
+            model.fields.modelId.type.should.equal('STRING');
             model.fields.modelId.index.should.equal('modelId');
         });
     });

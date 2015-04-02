@@ -98,21 +98,21 @@ angular.module('recall').factory("recallEntity", [
                         return false;
                     }
                     switch (this.$model.fields[field].type) {
-                        case 'String':
+                        case 'STRING':
                             matchesType = typeof this[field] === 'string';
                             break;
-                        case 'Number':
+                        case 'NUMBER':
                             matchesType = typeof this[field] === 'number';
                             break;
-                        case 'Boolean':
+                        case 'BOOLEAN':
                             matchesType = this[field] === true || this[field] === false;
                             break;
-                        case 'Date':
+                        case 'DATE':
                             matchesType = this[field] instanceof Date || !isNaN(Date.parse(this[field]));
                             break;
                     }
                     if (!matchesType && !fieldIsUndefined) {
-                        $log.debug("Entity: $isValid returned false", "The type was not " + this.$model.fields[field].type, field, this);
+                        $log.debug("Entity: $isValid returned false", field + " was not a " + this.$model.fields[field].type, this);
                         return false;
                     }
                     if (typeof this.$model.fields[field].validate === "function" && !this.$model.fields[field].validate(this[field])) {

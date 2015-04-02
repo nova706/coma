@@ -1,11 +1,10 @@
 /*globals describe, beforeEach, afterEach, module, inject, it, should*/
 describe("ODataRESTAdapter", function () {
-
-    beforeEach(module('recall.adapter.oDataREST'));
-
+    var provider;
     var adapter;
     var $httpBackend;
     var $rootScope;
+    var PreparedQueryOptions;
     var isFunc = function (a) {
         return typeof a === 'function';
     };
@@ -15,13 +14,14 @@ describe("ODataRESTAdapter", function () {
     };
     var endpoint = '/api/' + model.dataSourceName;
 
-    beforeEach(inject(function (recallODataRESTAdapter) {
-        adapter = recallODataRESTAdapter;
+    beforeEach(module('recall.adapter.oDataREST', function (recallODataRESTAdapterProvider) {
+        provider = recallODataRESTAdapterProvider;
     }));
 
-    beforeEach(inject(function (_$httpBackend_, _$rootScope_) {
+    beforeEach(inject(function (_$httpBackend_, _$rootScope_, recallPreparedQueryOptions) {
         $httpBackend = _$httpBackend_;
         $rootScope = _$rootScope_;
+        PreparedQueryOptions = recallPreparedQueryOptions;
     }));
 
     afterEach(function () {
@@ -29,15 +29,192 @@ describe("ODataRESTAdapter", function () {
         $httpBackend.verifyNoOutstandingRequest();
     });
 
-    it("Should provide the basic CRUD methods", function () {
+    it("Should provide the basic CRUD methods", inject(function ($injector) {
+        adapter = $injector.invoke(provider.$get);
         should.equal(true, isFunc(adapter.create));
         should.equal(true, isFunc(adapter.findOne));
         should.equal(true, isFunc(adapter.find));
         should.equal(true, isFunc(adapter.update));
         should.equal(true, isFunc(adapter.remove));
+    }));
+
+    describe("setServerAPILocation", function () {
+        it("Should set the server's endpoint location", inject(function ($injector) {
+            provider.setServerAPILocation('/test/');
+            adapter = $injector.invoke(provider.$get);
+
+            $httpBackend.expectPOST('/test/' + model.dataSourceName).respond({id: 1, name: 'John'});
+            adapter.create(model, {name: "John"});
+            $httpBackend.flush();
+        }));
+
+        it("Should append the trailing slash if not provided", inject(function ($injector) {
+            provider.setServerAPILocation('/test');
+            adapter = $injector.invoke(provider.$get);
+
+            $httpBackend.expectPOST('/test/' + model.dataSourceName).respond({id: 1, name: 'John'});
+            adapter.create(model, {name: "John"});
+            $httpBackend.flush();
+        }));
+    });
+
+    describe("setResultsField", function () {
+        it("Should set the expected path to results in the response during find", inject(function ($injector) {
+            provider.setResultsField('test');
+            adapter = $injector.invoke(provider.$get);
+
+            $httpBackend.expectGET(endpoint).respond(200, {test: [{id: 1, name: 'John'}], totalCount: 1});
+            var response = {};
+
+            adapter.find(model).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        }));
+
+        it("Should set the expected path to results in the response during synchronize", inject(function ($injector) {
+            provider.setResultsField('test');
+            adapter = $injector.invoke(provider.$get);
+
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(200, {test: [{id: 1, name: 'John'}], totalCount: 1});
+            var response = {};
+
+            adapter.synchronize(model, [{name: "John"}], date).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        }));
+
+        it("Should expect the results at the top level if set to null during find", inject(function ($injector) {
+            provider.setResultsField('');
+            adapter = $injector.invoke(provider.$get);
+
+            $httpBackend.expectGET(endpoint).respond(200, [{id: 1, name: 'John'}]);
+            var response = {};
+
+            adapter.find(model).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            should.equal(response.count, null);
+            response.status.should.equal(200);
+        }));
+
+        it("Should expect the results at the top level if set to null during synchronize", inject(function ($injector) {
+            provider.setResultsField('');
+            adapter = $injector.invoke(provider.$get);
+
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(200, [{id: 1, name: 'John'}]);
+            var response = {};
+
+            adapter.synchronize(model, [{name: "John"}], date).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            should.equal(response.count, null);
+            response.status.should.equal(200);
+        }));
+    });
+
+    describe("setTotalCountFiled", function () {
+        it("Should set the expected path to the total count in the response during find", inject(function ($injector) {
+            provider.setTotalCountFiled('test');
+            adapter = $injector.invoke(provider.$get);
+
+            $httpBackend.expectGET(endpoint).respond(200, {results: [{id: 1, name: 'John'}], test: 1});
+            var response = {};
+
+            adapter.find(model).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        }));
+
+        it("Should set the expected path to the total count in the response during synchronize", inject(function ($injector) {
+            provider.setTotalCountFiled('test');
+            adapter = $injector.invoke(provider.$get);
+
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(200, {results: [{id: 1, name: 'John'}], test: 1});
+            var response = {};
+
+            adapter.synchronize(model, [{name: "John"}], date).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        }));
+
+        it("Should ignore the total count if set to null during find", inject(function ($injector) {
+            provider.setTotalCountFiled('');
+            adapter = $injector.invoke(provider.$get);
+
+            $httpBackend.expectGET(endpoint).respond(200, {results: [{id: 1, name: 'John'}], totalCount: 1});
+            var response = {};
+
+            adapter.find(model).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            should.equal(response.count, null);
+            response.status.should.equal(200);
+        }));
+
+        it("Should ignore the total count if set to null during synchronize", inject(function ($injector) {
+            provider.setTotalCountFiled('');
+            adapter = $injector.invoke(provider.$get);
+
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(200, {results: [{id: 1, name: 'John'}], test: 1});
+            var response = {};
+
+            adapter.synchronize(model, [{name: "John"}], date).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            should.equal(response.count, null);
+            response.status.should.equal(200);
+        }));
     });
 
     describe("Create", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
         it("Should return a promise", function () {
             $httpBackend.expectPOST(endpoint).respond({id: 1, name: 'John'});
 
@@ -79,6 +256,10 @@ describe("ODataRESTAdapter", function () {
     });
 
     describe("FindOne", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
         it("Should return a promise", function () {
             $httpBackend.expectGET(endpoint + '/1').respond({id: 1, name: 'John'});
 
@@ -96,6 +277,17 @@ describe("ODataRESTAdapter", function () {
             $rootScope.$apply();
 
             should.equal(true, promiseFailed);
+        });
+
+        it("Should add the options onto the url", function () {
+            var options = new PreparedQueryOptions().$top(10).$skip(10);
+            $httpBackend.expectGET(endpoint + '/1?$top=10&$skip=10').respond(200, {id: 1, name: 'John'});
+            var response = {};
+
+            adapter.findOne(model, 1, options).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
         });
 
         it("Should resolve a proper response", function () {
@@ -130,6 +322,10 @@ describe("ODataRESTAdapter", function () {
     });
 
     describe("Find", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
         it("Should return a promise", function () {
             $httpBackend.expectGET(endpoint).respond({results: [{id: 1, name: 'John'}], totalCount: 1});
 
@@ -137,6 +333,17 @@ describe("ODataRESTAdapter", function () {
             $httpBackend.flush();
 
             should.equal(true, isFunc(promise.then));
+        });
+
+        it("Should add the options onto the url", function () {
+            var options = new PreparedQueryOptions().$top(10).$skip(10);
+            $httpBackend.expectGET(endpoint + '?$top=10&$skip=10').respond({results: [{id: 1, name: 'John'}], totalCount: 1});
+            var response = {};
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
         });
 
         it("Should resolve a proper response", function () {
@@ -171,6 +378,10 @@ describe("ODataRESTAdapter", function () {
     });
 
     describe("Update", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
         it("Should return a promise", function () {
             $httpBackend.expectPUT(endpoint + '/1').respond({id: 1, name: 'Steve'});
 
@@ -222,6 +433,10 @@ describe("ODataRESTAdapter", function () {
     });
 
     describe("Remove", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
         it("Should return a promise", function () {
             $httpBackend.expectDELETE(endpoint + '/1').respond(200);
 
@@ -260,6 +475,54 @@ describe("ODataRESTAdapter", function () {
             var response = {};
 
             adapter.remove(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+    });
+
+    describe("Synchronize", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+        }));
+
+        it("Should return a promise", function () {
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(200, {results: [{id: 1, name: 'John'}], totalCount: 1});
+
+            var promise = adapter.synchronize(model, [{name: "John"}], date);
+            $httpBackend.flush();
+
+            should.equal(true, isFunc(promise.then));
+        });
+
+        it("Should resolve a proper response", function () {
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(200, {results: [{id: 1, name: 'John'}], totalCount: 1});
+            var response = {};
+
+            adapter.synchronize(model, [{name: "John"}], date).then(function (res) {
+                response = res;
+            });
+            $httpBackend.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error", function () {
+            var date = new Date().toISOString();
+            $httpBackend.expectPUT(endpoint).respond(500, "Error");
+            var response = {};
+
+            adapter.synchronize(model, [{name: "John"}], date).then(null, function (res) {
                 response = res;
             });
             $httpBackend.flush();
