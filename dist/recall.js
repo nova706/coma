@@ -1,4 +1,4 @@
-/*! recall 01-04-2015 */
+/*! recall 02-04-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
@@ -36,6 +36,11 @@ angular.module("recall").factory("recallAdapterResponse", [ function() {
     return AdapterResponse;
 } ]);
 
+/**
+ * Due to an iOS 8 bug in IndexedDB, a transaction cannot open multiple data stores at the same time: https://bugs.webkit.org/show_bug.cgi?id=136937
+ * As a "Fix", transactions will only ever only open a single objectStore and multiple transactions will be used.
+ * Impact to performance and stability is not yet known.
+ */
 angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexedDBAdapter", [ function() {
     var providerConfig = {};
     // Sets the name of the IndexedDB database to use
@@ -135,6 +140,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             }
             return dfd.promise;
         };
+        // TODO: Cascade Delete: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Creates a new Entity
                  * @param {Object} theModel The model of the entity to create
@@ -150,13 +156,11 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 return response;
             };
             modelInstance[theModel.primaryKeyFieldName] = generatePrimaryKey();
-            // TODO: Manage Cascade Create
             modelInstance = theModel.getRawModelObject(modelInstance, false);
             // TODO: Store all dates in ISO format
             modelInstance[theModel.lastModifiedFieldName] = new Date().toISOString();
             connect().then(function() {
-                var tables = [ theModel.dataSourceName ];
-                var tx = db.transaction(tables, "readwrite");
+                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
                 var store = tx.objectStore(theModel.dataSourceName);
                 var req = store.add(modelInstance);
                 req.onsuccess = function() {
@@ -189,14 +193,13 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 return response;
             };
             connect().then(function() {
-                var tables = [ theModel.dataSourceName ].concat(getTablesFromQueryOptions(theModel, queryOptions));
-                var tx = db.transaction(tables);
+                var tx = db.transaction([ theModel.dataSourceName ]);
                 var store = tx.objectStore(theModel.dataSourceName);
                 var req = store.get(pk);
                 // TODO: Apply Select
                 req.onsuccess = function() {
                     if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
-                        performExpand(req.result, theModel, queryOptions, tx).then(function() {
+                        performExpand(req.result, theModel, queryOptions, db).then(function() {
                             response = new AdapterResponse(req.result, 1);
                             $log.debug("IndexedDBAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
                             dfd.resolve(response);
@@ -232,8 +235,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             };
             connect().then(function() {
                 // TODO: Filter using an index if possible
-                var tables = [ theModel.dataSourceName ].concat(getTablesFromQueryOptions(theModel, queryOptions));
-                var tx = db.transaction(tables);
+                var tx = db.transaction([ theModel.dataSourceName ]);
                 var store = tx.objectStore(theModel.dataSourceName);
                 var req = store.openCursor();
                 var results = [];
@@ -259,7 +261,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                         var i;
                         var promises = [];
                         for (i = 0; i < results.length; i++) {
-                            promises.push(performExpand(results[i], theModel, queryOptions, tx));
+                            promises.push(performExpand(results[i], theModel, queryOptions, db));
                         }
                         $q.all(promises).then(function() {
                             results = applyFilter(results, filterPredicate);
@@ -283,6 +285,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             });
             return dfd.promise;
         };
+        // TODO: Cascade Update: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Updates a Model entity given the primary key of the entity
                  * @param {Object} theModel The model of the entity to update
@@ -300,8 +303,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 return response;
             };
             connect().then(function() {
-                var tables = [ theModel.dataSourceName ];
-                var tx = db.transaction(tables, "readwrite");
+                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
                 var store = tx.objectStore(theModel.dataSourceName);
                 var req = store.get(pk);
                 req.onsuccess = function() {
@@ -311,7 +313,6 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                         angular.extend(result, modelInstance);
                         // TODO: Convert all dates to ISO Format
                         result[theModel.lastModifiedFieldName] = new Date().toISOString();
-                        // TODO: Manage Cascade Create/Update/Delete
                         result = theModel.getRawModelObject(result, false);
                         var updateReq = store.put(result);
                         updateReq.onsuccess = function() {
@@ -334,7 +335,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             });
             return dfd.promise;
         };
-        // TODO: Cascade Delete
+        // TODO: Cascade Delete: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Removes an Entity given the primary key of the entity to remove
                  * @param {Object} theModel The model of the entity to remove
@@ -350,8 +351,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 return response;
             };
             connect().then(function() {
-                var tables = [ theModel.dataSourceName ];
-                var tx = db.transaction(tables, "readwrite");
+                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
                 var store = tx.objectStore(theModel.dataSourceName);
                 var req = store.get(pk);
                 req.onsuccess = function() {
@@ -395,15 +395,15 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 return response;
             };
             connect().then(function() {
-                var tables = [ theModel.dataSourceName ];
-                var tx = db.transaction(tables, "readwrite");
+                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
+                var objectStore = tx.objectStore(theModel.dataSourceName);
                 var i;
                 var promises = [];
                 for (i = 0; i < dataToSync.length; i++) {
                     if (dataToSync[i][theModel.deletedFieldName]) {
-                        promises.push(hardRemove(theModel, tx, dataToSync[i][theModel.primaryKeyFieldName]));
+                        promises.push(hardRemove(theModel, objectStore, dataToSync[i][theModel.primaryKeyFieldName]));
                     } else {
-                        promises.push(createOrUpdate(theModel, tx, dataToSync[i]));
+                        promises.push(createOrUpdate(theModel, objectStore, dataToSync[i]));
                     }
                 }
                 $q.all(promises).then(function(results) {
@@ -419,9 +419,8 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         // Creates a new Entity if not found or updates the existing one. Used in synchronization.
-        var createOrUpdate = function(theModel, tx, modelInstance) {
+        var createOrUpdate = function(theModel, objectStore, modelInstance) {
             var dfd = $q.defer();
-            var objectStore = tx.objectStore(theModel.dataSourceName);
             var req = objectStore.get(modelInstance[theModel.primaryKeyFieldName]);
             req.onsuccess = function() {
                 var result = req.result;
@@ -451,10 +450,9 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         // Hard deletes an Entity. Used in synchronization.
-        var hardRemove = function(theModel, tx, pk) {
+        var hardRemove = function(theModel, objectStore, pk) {
             var dfd = $q.defer();
-            var store = tx.objectStore(theModel.dataSourceName);
-            var req = store.delete(pk);
+            var req = objectStore.delete(pk);
             req.onsuccess = function() {
                 dfd.resolve();
             };
@@ -463,48 +461,15 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             };
             return dfd.promise;
         };
-        // Given an expand path, finds all the DB tables required for the transaction
-        // Recursive
-        var getTablesFromExpandPath = function(theModel, expandPath) {
-            var tables = [];
-            var pathsToExpand = expandPath.split(".");
-            var toExpand = pathsToExpand[0];
-            if (toExpand) {
-                var association = theModel.getAssociationByAlias(toExpand);
-                var model = association.getModel();
-                if (association && model) {
-                    tables.push(model.dataSourceName);
-                    if (pathsToExpand.length > 1) {
-                        tables = tables.concat(getTablesFromExpandPath(model, pathsToExpand.substring(pathsToExpand.indexOf(".") + 1)));
-                    }
-                }
-            }
-            return tables;
-        };
-        // Given queryOptions, finds all the DB tables required for the transaction
-        var getTablesFromQueryOptions = function(theModel, queryOptions) {
-            var tables = [];
-            var $expand;
-            if (queryOptions) {
-                $expand = queryOptions.$expand();
-            }
-            if ($expand) {
-                var paths = $expand.split(",");
-                var i;
-                for (i = 0; i < paths.length; i++) {
-                    tables = tables.concat(getTablesFromExpandPath(theModel, paths[i]));
-                }
-            }
-            return tables;
-        };
         // Expands a has one model association
-        var expandHasOne = function(model, result, association, tx, pathsToExpand) {
+        var expandHasOne = function(model, result, association, db, pathsToExpand) {
             var dfd = $q.defer();
             if (result[association.mappedBy] === undefined) {
                 result[association.mappedBy] = null;
                 dfd.resolve();
                 return dfd.promise;
             }
+            var tx = db.transaction([ model.dataSourceName ]);
             var store = tx.objectStore(model.dataSourceName);
             var pathToExpand = pathsToExpand.join(".");
             var req = store.get(result[association.mappedBy]);
@@ -512,7 +477,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 if (req.result && !req.result[model.deletedFieldName]) {
                     result[association.alias] = req.result;
                     if (pathsToExpand.length > 1) {
-                        expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), tx).then(function() {
+                        expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), db).then(function() {
                             dfd.resolve();
                         }, function(e) {
                             dfd.reject(e);
@@ -531,8 +496,9 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         // Expands a has many model association
-        var expandHasMany = function(model, result, association, tx, pathsToExpand) {
+        var expandHasMany = function(model, result, association, db, pathsToExpand) {
             var dfd = $q.defer();
+            var tx = db.transaction([ model.dataSourceName ]);
             var store = tx.objectStore(model.dataSourceName);
             var pathToExpand = pathsToExpand.join(".");
             var index = store.index(association.mappedBy);
@@ -555,7 +521,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                         var i;
                         var promises = [];
                         for (i = 0; i < results.length; i++) {
-                            promises.push(expandPath(results[i], model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), tx));
+                            promises.push(expandPath(results[i], model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), db));
                         }
                         $q.all(promises).then(function() {
                             dfd.resolve();
@@ -574,7 +540,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
         };
         // Expands a Model association given an expand path
         // Recursive
-        var expandPath = function(result, theModel, pathToExpand, tx) {
+        var expandPath = function(result, theModel, pathToExpand, db) {
             var pathsToExpand = pathToExpand.split(".");
             var toExpand = pathsToExpand[0];
             if (toExpand) {
@@ -582,9 +548,9 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 var model = association.getModel();
                 if (association && model) {
                     if (association.type === "hasOne") {
-                        return expandHasOne(model, result, association, tx, pathsToExpand);
+                        return expandHasOne(model, result, association, db, pathsToExpand);
                     } else if (association.type === "hasMany") {
-                        return expandHasMany(model, result, association, tx, pathsToExpand);
+                        return expandHasMany(model, result, association, db, pathsToExpand);
                     }
                 }
             }
@@ -594,7 +560,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             return dfd.promise;
         };
         // Expands all Model associations defined in the query options $expand clause
-        var performExpand = function(result, theModel, queryOptions, tx) {
+        var performExpand = function(result, theModel, queryOptions, db) {
             var dfd = $q.defer();
             var $expand;
             var promises = [];
@@ -605,7 +571,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 var paths = $expand.split(",");
                 var i;
                 for (i = 0; i < paths.length; i++) {
-                    promises.push(expandPath(result, theModel, paths[i], tx));
+                    promises.push(expandPath(result, theModel, paths[i], db));
                 }
                 $q.all(promises).then(function() {
                     dfd.resolve();
