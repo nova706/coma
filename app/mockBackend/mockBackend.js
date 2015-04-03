@@ -229,7 +229,7 @@ angular.module('recallDemo').run([
                             angular.extend(results[i], matchedData);
                             totalUpdates++;
                         }
-                    } else if (new Date(results[i].lastModified) > new Date(data.lastSync)) {
+                    } else if (!data.lastSync || new Date(results[i].lastModified) > new Date(data.lastSync)) {
                         // The server result was updated since the last client sync
                         toUpdateOnClient.push(results[i]);
                     }
