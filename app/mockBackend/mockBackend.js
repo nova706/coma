@@ -237,8 +237,10 @@ angular.module('recallDemo').run([
                 }
 
                 for (i = 0; i < data.data.length; i++) {
+                    matchedData = null;
                     for (d = 0; d < results.length; d++) {
                         if (results[d].id === data.data[i].id) {
+                            matchedData = results[d].id;
                             break;
                         }
                     }
