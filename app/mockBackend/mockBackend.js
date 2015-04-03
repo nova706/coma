@@ -214,6 +214,7 @@ angular.module('recallDemo').run([
 
                 var d;
                 for (i = 0; i < results.length; i++) {
+                    matchedData = null;
                     for (d = 0; d < data.data.length; d++) {
                         if (results[i].id === data.data[d].id) {
                             matchedData = data.data[d];
