@@ -177,10 +177,18 @@ angular.module('recall.adapter.sync', ['recall']).provider('recallSyncAdapter', 
 
                 /**
                  * Manually Syncs the Slave and Master adapters
-                 * @param {Object} theModel The model of the entities to synchronize
-                 * @returns {promise} Resolved with an AdapterResponse
+                 * @param {Object|Array} theModel The model of the entities to synchronize or an array of models to synchronize
+                 * @returns {promise} Resolved with an AdapterResponse for each model synchronized
                  */
                 adapter.synchronize = function (theModel) {
+                    if (theModel instanceof Array) {
+                        var promises = [];
+                        var i;
+                        for (i = 0; i < theModel.length; i++) {
+                            promises.push(processSyncRequest(theModel[i]));
+                        }
+                        return $q.all(promises);
+                    }
                     return processSyncRequest(theModel);
                 };
 

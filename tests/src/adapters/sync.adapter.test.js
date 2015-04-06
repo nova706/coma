@@ -49,11 +49,12 @@ describe("SyncAdapter", function () {
 
     it("Should provide the basic CRUD methods", inject(function ($injector) {
         adapter = $injector.invoke(provider.$get);
-        should.equal(true, isFunc(adapter.create));
-        should.equal(true, isFunc(adapter.findOne));
-        should.equal(true, isFunc(adapter.find));
-        should.equal(true, isFunc(adapter.update));
-        should.equal(true, isFunc(adapter.remove));
+        should.equal(isFunc(adapter.create), true);
+        should.equal(isFunc(adapter.findOne), true);
+        should.equal(isFunc(adapter.find), true);
+        should.equal(isFunc(adapter.update), true);
+        should.equal(isFunc(adapter.remove), true);
+        should.equal(isFunc(adapter.synchronize), true);
     }));
 
     it("Should inject the master adapter if a string is provided", inject(function ($injector) {

@@ -8,6 +8,7 @@ module.exports = function (config) {
             'https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.js',
             'https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular-mocks.js',
             'tests/helpers/mockIndexedDB.js',
+            'tests/helpers/mockWebSQL.js',
             'src/**/*.js',
             'tests/src/**/*.js'
         ],

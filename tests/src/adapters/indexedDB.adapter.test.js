@@ -44,6 +44,7 @@ describe("IndexedDBAdapter", function () {
         should.equal(isFunc(adapter.find), true);
         should.equal(isFunc(adapter.update), true);
         should.equal(isFunc(adapter.remove), true);
+        should.equal(isFunc(adapter.synchronize), true);
     }));
 
     describe("setDbName", function () {
