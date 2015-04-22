@@ -17,7 +17,7 @@ window.MockIndexedDB = function ($timeout) {
         onversionchange: noop,
         objectStoreNames: {
             contains: function (storeName) {
-                return mockObjectStores.indexOf(storeName);
+                return mockObjectStores.indexOf(storeName) >= 0;
             }
         },
         createObjectStore: function (storeName, properties) {
@@ -124,6 +124,12 @@ window.MockIndexedDB = function ($timeout) {
             $timeout(function () {
                 if (rejectTransaction) {
                     toReturn.onerror();
+                } else if (!transactionResult) {
+                    toReturn.onsuccess({
+                        target: {
+                            result: null
+                        }
+                    });
                 } else {
                     toReturn.onsuccess({
                         target: {
@@ -151,6 +157,12 @@ window.MockIndexedDB = function ($timeout) {
             $timeout(function () {
                 if (rejectTransaction) {
                     toReturn.onerror();
+                } else if (!transactionResult) {
+                    toReturn.onsuccess({
+                        target: {
+                            result: null
+                        }
+                    });
                 } else {
                     toReturn.onsuccess({
                         target: {
@@ -190,7 +202,8 @@ window.MockIndexedDB = function ($timeout) {
             mockIndex: mockIndex,
             mockObjectStore: mockObjectStore,
             mockTransaction: mockTransaction,
-            mockDatabase: mockDatabase
+            mockDatabase: mockDatabase,
+            mockObjectStores: mockObjectStores
         },
         open: function () {
             var toReturn = {

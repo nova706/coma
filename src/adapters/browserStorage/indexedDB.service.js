@@ -35,7 +35,7 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
         indexedDBService.handleVersionChange = function (db) {
             db.onversionchange = function () {
                 db.close();
-                alert("A new version of this page is ready. Please reload!");
+                $window.alert("A new version of this page is ready. Please reload!");
             };
         };
 
@@ -183,6 +183,8 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
                     updateReq.onerror = function () {
                         dfd.reject(this.error);
                     };
+                } else {
+                    dfd.resolve(null);
                 }
             };
             req.onerror = function () {
@@ -298,7 +300,7 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
 
             var req = objectStore.delete(pk);
             req.onsuccess = function () {
-                dfd.resolve();
+                dfd.resolve(null);
             };
             req.onerror = function () {
                 dfd.reject(this.error);
