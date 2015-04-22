@@ -36,23 +36,34 @@ angular.module("recall").factory("recallAdapterResponse", [ function() {
     return AdapterResponse;
 } ]);
 
-/**
- * Due to an iOS 8 bug in IndexedDB, a transaction cannot open multiple data stores at the same time: https://bugs.webkit.org/show_bug.cgi?id=136937
- * As a "Fix", transactions will only ever only open a single objectStore and multiple transactions will be used.
- * Impact to performance and stability is not yet known.
- */
-angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexedDBAdapter", [ function() {
+angular.module("recall.adapter.browserStorage", [ "recall" ]).provider("recallBrowserStorageAdapter", [ function() {
     var providerConfig = {};
-    // Sets the name of the IndexedDB database to use
+    providerConfig.preferredBackend = "indexedDB";
+    this.preferIndexedDB = function() {
+        providerConfig.preferredBackend = "indexedDB";
+        return this;
+    };
+    this.preferWebSQL = function() {
+        providerConfig.preferredBackend = "webSQL";
+        return this;
+    };
+    // Sets the name of the database to use
     providerConfig.dbName = "recall";
     this.setDbName = function(dbName) {
         providerConfig.dbName = dbName;
         return this;
     };
-    // Sets the version of the IndexedDB to use
+    // Sets the version of the database
     providerConfig.dbVersion = 1;
     this.setDbVersion = function(dbVersion) {
         providerConfig.dbVersion = dbVersion;
+        return this;
+    };
+    // Sets the size of the database (WebSQL)
+    providerConfig.dbSize = 5 * 1024 * 1024;
+    // 5MB
+    this.setDbSize = function(dbSize) {
+        providerConfig.dbSize = dbSize;
         return this;
     };
     // Sets the default function to be used as a "GUID" generator
@@ -66,85 +77,51 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
         providerConfig.pkGenerator = pkGenerator;
         return this;
     };
-    // Drops the IndexedDB database
-    this.dropDatabase = function() {
-        try {
-            window.indexedDB.deleteDatabase(providerConfig.dbName);
-        } catch (e) {
-            return e;
-        }
-        return true;
-    };
-    this.$get = [ "$log", "$q", "$window", "recall", "recallAdapterResponse", function($log, $q, $window, recall, AdapterResponse) {
-        var adapter = {};
+    this.$get = [ "$log", "$q", "$window", "recall", "recallAdapterResponse", "recallIndexedDBService", "recallWebSQLService", function($log, $q, $window, recall, AdapterResponse, indexedDBService, webSQLService) {
+        var adapter = {
+            service: null,
+            db: null
+        };
         var connectionPromise;
-        var db;
         var generatePrimaryKey = providerConfig.pkGenerator;
-        // Handles version differences in the database and initializes or migrates the db
-        var migrate = function(db) {
-            var i;
-            var model;
-            var field;
-            var indexName;
-            var objectStore;
-            var models = recall.getModels();
-            for (i = 0; i < models.length; i++) {
-                model = models[i];
-                if (!db.objectStoreNames.contains(model.dataSourceName)) {
-                    objectStore = db.createObjectStore(model.dataSourceName, {
-                        keyPath: model.primaryKeyFieldName
-                    });
-                    for (field in model.fields) {
-                        if (model.fields.hasOwnProperty(field)) {
-                            if (model.fields[field].unique === true || model.fields[field].index !== false) {
-                                indexName = model.fields[field].index === true ? field : model.fields[field].index;
-                                objectStore.createIndex(field, indexName, {
-                                    unique: model.fields[field].unique
-                                });
-                            }
-                        }
-                    }
+        var init = function() {
+            if (providerConfig.preferredBackend === "webSQL") {
+                if ($window.openDatabase !== undefined) {
+                    adapter.service = webSQLService;
+                } else if ($window.indexedDB !== undefined) {
+                    adapter.service = indexedDBService;
+                }
+            } else {
+                if ($window.indexedDB !== undefined) {
+                    adapter.service = indexedDBService;
+                } else if ($window.openDatabase !== undefined) {
+                    adapter.service = webSQLService;
                 }
             }
-        };
-        // Sets the database to use in the adapter
-        var useDatabase = function(theDb) {
-            db = theDb;
-            // Handler for when the DB version is changed in another tab
-            db.onversionchange = function() {
-                db.close();
-                $log.error("IndexedDBAdapter: DB version changed in a different window");
-                alert("A new version of this page is ready. Please reload!");
-            };
+            if (!adapter.service) {
+                $log.error("BrowserStorageAdapter: IndexedDB and WebSQL are not available");
+            }
         };
         // Connects to the database
         var connect = function() {
             var dfd = $q.defer();
-            if (db) {
-                dfd.resolve(db);
+            if (adapter.db) {
+                dfd.resolve(adapter.db);
             } else if (connectionPromise) {
                 return connectionPromise;
             } else {
-                var openRequest = $window.indexedDB.open(providerConfig.dbName, providerConfig.dbVersion);
-                openRequest.onupgradeneeded = function(event) {
-                    $log.info("IndexedDBAdapter: Migrating...", event);
-                    useDatabase(event.target.result);
-                    migrate(event.target.result);
-                };
-                openRequest.onsuccess = function(event) {
-                    $log.debug("IndexedDBAdapter: Connection Success", event);
-                    useDatabase(event.target.result);
-                    dfd.resolve(db);
-                };
-                openRequest.onerror = function(event) {
-                    $log.error("IndexedDBAdapter: Connection Error", event);
-                    dfd.reject(event.target.errorCode);
-                };
+                adapter.service.connect(providerConfig.dbName, providerConfig.dbVersion, providerConfig.dbSize).then(function(db) {
+                    $log.debug("BrowserStorageAdapter: Database Connection Success");
+                    adapter.db = db;
+                    dfd.resolve(adapter.db);
+                }, function(e) {
+                    $log.error("BrowserStorageAdapter: Database Connection Failed", e);
+                    dfd.reject(e);
+                });
             }
             connectionPromise = dfd.promise;
             return dfd.promise;
         };
-        // TODO: Cascade Create: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Creates a new Entity
                  * @param {Object} theModel The model of the entity to create
@@ -156,25 +133,21 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             var response;
             var buildError = function(e) {
                 response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("IndexedDBAdapter: Create " + theModel.modelName, response, modelInstance);
+                $log.error("BrowserStorageAdapter: Create " + theModel.modelName, response, modelInstance);
                 return response;
             };
             modelInstance[theModel.primaryKeyFieldName] = generatePrimaryKey();
             modelInstance = theModel.getRawModelObject(modelInstance, false);
             // TODO: Store all dates in ISO format
             modelInstance[theModel.lastModifiedFieldName] = new Date().toISOString();
-            connect().then(function() {
-                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
-                var store = tx.objectStore(theModel.dataSourceName);
-                var req = store.add(modelInstance);
-                req.onsuccess = function() {
-                    response = new AdapterResponse(modelInstance, 1, AdapterResponse.CREATED);
-                    $log.debug("IndexedDBAdapter: Create " + theModel.modelName, response);
+            connect().then(function(db) {
+                adapter.service.create(db, theModel, modelInstance).then(function(result) {
+                    response = new AdapterResponse(result, 1, AdapterResponse.CREATED);
+                    $log.debug("BrowserStorageAdapter: Create " + theModel.modelName, response);
                     dfd.resolve(response);
-                };
-                req.onerror = function() {
-                    dfd.reject(buildError(this.error));
-                };
+                }, function(e) {
+                    dfd.reject(buildError(e));
+                });
             }, function(e) {
                 dfd.reject(buildError(e));
             });
@@ -193,19 +166,15 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             var response;
             var buildError = function(e, status) {
                 response = new AdapterResponse(e, 0, status || AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("IndexedDBAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
+                $log.error("BrowserStorageAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
                 return response;
             };
-            connect().then(function() {
-                var tx = db.transaction([ theModel.dataSourceName ]);
-                var store = tx.objectStore(theModel.dataSourceName);
-                var req = store.get(pk);
-                // TODO: Apply Select
-                req.onsuccess = function() {
-                    if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
-                        performExpand(req.result, theModel, queryOptions, db).then(function() {
-                            response = new AdapterResponse(req.result, 1);
-                            $log.debug("IndexedDBAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
+            connect().then(function(db) {
+                adapter.service.findOne(db, theModel, pk, includeDeleted).then(function(result) {
+                    if (result) {
+                        performExpand(result, theModel, queryOptions, db).then(function() {
+                            response = new AdapterResponse(result, 1);
+                            $log.debug("BrowserStorageAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
                             dfd.resolve(response);
                         }, function(e) {
                             dfd.reject(buildError(e));
@@ -213,10 +182,9 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                     } else {
                         dfd.reject(buildError("Not Found", AdapterResponse.NOT_FOUND));
                     }
-                };
-                req.onerror = function() {
-                    dfd.reject(buildError(this.error));
-                };
+                }, function(e) {
+                    dfd.reject(buildError(e));
+                });
             }, function(e) {
                 dfd.reject(buildError(e));
             });
@@ -234,62 +202,39 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             var response;
             var buildError = function(e) {
                 response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("IndexedDBAdapter: Find " + theModel.modelName, response, queryOptions);
+                $log.error("BrowserStorageAdapter: Find " + theModel.modelName, response, queryOptions);
                 return response;
             };
-            connect().then(function() {
-                // TODO: Filter using an index if possible
-                var tx = db.transaction([ theModel.dataSourceName ]);
-                var store = tx.objectStore(theModel.dataSourceName);
-                var req = store.openCursor();
-                var results = [];
+            connect().then(function(db) {
                 var filterPredicate;
                 if (queryOptions && queryOptions.$filter()) {
                     filterPredicate = queryOptions.$filter();
                 }
-                // TODO: Apply Select
-                req.onsuccess = function(event) {
-                    var cursor = event.target.result;
-                    if (cursor) {
-                        if (includeDeleted || !cursor.value[theModel.deletedFieldName]) {
-                            if (filterPredicate) {
-                                if (resultMatchesFilters(cursor.value, filterPredicate)) {
-                                    results.push(cursor.value);
-                                }
-                            } else {
-                                results.push(cursor.value);
-                            }
-                        }
-                        cursor.continue();
-                    } else {
-                        var i;
-                        var promises = [];
-                        for (i = 0; i < results.length; i++) {
-                            promises.push(performExpand(results[i], theModel, queryOptions, db));
-                        }
-                        $q.all(promises).then(function() {
-                            results = applyFilter(results, filterPredicate);
-                            results = applyOrderBy(theModel, results, queryOptions);
-                            var totalCount = results.length;
-                            // TODO: This is not very efficient but indexedDB does not seem to support a better way with filters and ordering
-                            results = applyPaging(results, queryOptions);
-                            response = new AdapterResponse(results, totalCount);
-                            $log.debug("IndexedDBAdapter: Find " + theModel.modelName, response, queryOptions);
-                            dfd.resolve(response);
-                        }, function(e) {
-                            dfd.reject(buildError(e));
-                        });
+                adapter.service.find(db, theModel, includeDeleted).then(function(results) {
+                    var i;
+                    var promises = [];
+                    for (i = 0; i < results.length; i++) {
+                        promises.push(performExpand(results[i], theModel, queryOptions, db));
                     }
-                };
-                req.onerror = function() {
-                    dfd.reject(buildError(this.error));
-                };
+                    $q.all(promises).then(function() {
+                        results = applyFilter(results, filterPredicate);
+                        results = applyOrderBy(theModel, results, queryOptions);
+                        var totalCount = results.length;
+                        results = applyPaging(results, queryOptions);
+                        response = new AdapterResponse(results, totalCount);
+                        $log.debug("BrowserStorageAdapter: Find " + theModel.modelName, response, queryOptions);
+                        dfd.resolve(response);
+                    }, function(e) {
+                        dfd.reject(buildError(e));
+                    });
+                }, function(e) {
+                    dfd.reject(buildError(e));
+                });
             }, function(e) {
                 dfd.reject(buildError(e));
             });
             return dfd.promise;
         };
-        // TODO: Cascade Update: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Updates a Model entity given the primary key of the entity
                  * @param {Object} theModel The model of the entity to update
@@ -303,43 +248,26 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             var response;
             var buildError = function(e) {
                 response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("IndexedDBAdapter: Update " + theModel.modelName, response, modelInstance);
+                $log.error("BrowserStorageAdapter: Update " + theModel.modelName, response, modelInstance);
                 return response;
             };
-            connect().then(function() {
-                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
-                var store = tx.objectStore(theModel.dataSourceName);
-                var req = store.get(pk);
-                req.onsuccess = function() {
-                    if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
-                        var result = req.result;
-                        delete modelInstance[theModel.primaryKeyFieldName];
-                        angular.extend(result, modelInstance);
-                        // TODO: Convert all dates to ISO Format
-                        result[theModel.lastModifiedFieldName] = new Date().toISOString();
-                        result = theModel.getRawModelObject(result, false);
-                        var updateReq = store.put(result);
-                        updateReq.onsuccess = function() {
-                            response = new AdapterResponse(result, 1);
-                            $log.debug("IndexedDBAdapter: Update " + theModel.modelName, response, modelInstance);
-                            dfd.resolve(response);
-                        };
-                        updateReq.onerror = function() {
-                            dfd.reject(buildError(this.error));
-                        };
+            connect().then(function(db) {
+                adapter.service.update(db, theModel, pk, modelInstance, includeDeleted).then(function(result) {
+                    if (result) {
+                        response = new AdapterResponse(result, 1);
+                        $log.debug("BrowserStorageAdapter: Update " + theModel.modelName, response, modelInstance);
+                        dfd.resolve(response);
                     } else {
                         dfd.reject(buildError("Not Found", AdapterResponse.NOT_FOUND));
                     }
-                };
-                req.onerror = function() {
-                    dfd.reject(buildError(this.error));
-                };
+                }, function(e) {
+                    dfd.reject(buildError(e));
+                });
             }, function(e) {
                 dfd.reject(buildError(e));
             });
             return dfd.promise;
         };
-        // TODO: Cascade Delete: Cannot do proper cascades until iOS fixes the bug in IndexedDB where a transaction cannot open multiple stores
         /**
                  * Removes an Entity given the primary key of the entity to remove
                  * @param {Object} theModel The model of the entity to remove
@@ -351,34 +279,17 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             var response;
             var buildError = function(e) {
                 response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("IndexedDBAdapter: Remove " + theModel.modelName, response);
+                $log.error("BrowserStorageAdapter: Remove " + theModel.modelName, response);
                 return response;
             };
-            connect().then(function() {
-                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
-                var store = tx.objectStore(theModel.dataSourceName);
-                var req = store.get(pk);
-                req.onsuccess = function() {
-                    if (req.result && !req.result[theModel.deletedFieldName]) {
-                        var result = req.result;
-                        result[theModel.deletedFieldName] = true;
-                        result[theModel.lastModifiedFieldName] = new Date().toISOString();
-                        var updateReq = store.put(result);
-                        updateReq.onsuccess = function() {
-                            response = new AdapterResponse(null, 1, AdapterResponse.NO_CONTENT);
-                            $log.debug("IndexedDBAdapter: Remove " + theModel.modelName, response);
-                            dfd.resolve(response);
-                        };
-                        updateReq.onerror = function() {
-                            dfd.reject(buildError(this.error));
-                        };
-                    } else {
-                        dfd.reject(buildError("Not Found", AdapterResponse.NOT_FOUND));
-                    }
-                };
-                req.onerror = function() {
-                    dfd.reject(buildError(this.error));
-                };
+            connect().then(function(db) {
+                adapter.service.remove(db, theModel, pk).then(function() {
+                    response = new AdapterResponse(null, 1, AdapterResponse.NO_CONTENT);
+                    $log.debug("BrowserStorageAdapter: Remove " + theModel.modelName, response);
+                    dfd.resolve(response);
+                }, function(e) {
+                    dfd.reject(buildError(e));
+                });
             }, function(e) {
                 dfd.reject(buildError(e));
             });
@@ -395,24 +306,23 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             var response;
             var buildError = function(e) {
                 response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("IndexedDBAdapter: Synchronize " + theModel.modelName, response, dataToSync);
+                $log.error("BrowserStorageAdapter: Synchronize " + theModel.modelName, response, dataToSync);
                 return response;
             };
-            connect().then(function() {
-                var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
-                var objectStore = tx.objectStore(theModel.dataSourceName);
+            connect().then(function(db) {
                 var i;
-                var promises = [];
+                var merge = [];
+                var remove = [];
                 for (i = 0; i < dataToSync.length; i++) {
                     if (dataToSync[i][theModel.deletedFieldName]) {
-                        promises.push(hardRemove(theModel, objectStore, dataToSync[i][theModel.primaryKeyFieldName]));
+                        remove.push(dataToSync[i]);
                     } else {
-                        promises.push(createOrUpdate(theModel, objectStore, dataToSync[i]));
+                        merge.push(dataToSync[i]);
                     }
                 }
-                $q.all(promises).then(function(results) {
+                adapter.service.synchronize(db, theModel, merge, remove).then(function(results) {
                     response = new AdapterResponse(results, results.length, AdapterResponse.OK);
-                    $log.debug("IndexedDBAdapter: Synchronize " + theModel.modelName, response, dataToSync);
+                    $log.debug("BrowserStorageAdapter: Synchronize " + theModel.modelName, response, dataToSync);
                     dfd.resolve(response);
                 }, function(e) {
                     dfd.reject(buildError(e));
@@ -422,66 +332,20 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             });
             return dfd.promise;
         };
-        // Creates a new Entity if not found or updates the existing one. Used in synchronization.
-        var createOrUpdate = function(theModel, objectStore, modelInstance) {
-            var dfd = $q.defer();
-            var req = objectStore.get(modelInstance[theModel.primaryKeyFieldName]);
-            req.onsuccess = function() {
-                var result = req.result;
-                if (result) {
-                    angular.extend(result, modelInstance);
-                    result = theModel.getRawModelObject(result, false);
-                    var updateReq = objectStore.put(result);
-                    updateReq.onsuccess = function() {
-                        dfd.resolve(result);
-                    };
-                    updateReq.onerror = function() {
-                        dfd.reject(this.error);
-                    };
-                } else {
-                    var createReq = objectStore.add(modelInstance);
-                    createReq.onsuccess = function() {
-                        dfd.resolve(modelInstance);
-                    };
-                    createReq.onerror = function() {
-                        dfd.reject(this.error);
-                    };
-                }
-            };
-            req.onerror = function() {
-                dfd.reject(this.error);
-            };
-            return dfd.promise;
-        };
-        // Hard deletes an Entity. Used in synchronization.
-        var hardRemove = function(theModel, objectStore, pk) {
-            var dfd = $q.defer();
-            var req = objectStore.delete(pk);
-            req.onsuccess = function() {
-                dfd.resolve();
-            };
-            req.onerror = function() {
-                dfd.reject(this.error);
-            };
-            return dfd.promise;
-        };
         // Expands a has one model association
-        var expandHasOne = function(model, result, association, db, pathsToExpand) {
+        var expandHasOne = function(model, instance, association, db, pathsToExpand) {
             var dfd = $q.defer();
-            if (result[association.mappedBy] === undefined) {
-                result[association.mappedBy] = null;
+            if (instance[association.mappedBy] === undefined) {
+                instance[association.mappedBy] = null;
                 dfd.resolve();
                 return dfd.promise;
             }
-            var tx = db.transaction([ model.dataSourceName ]);
-            var store = tx.objectStore(model.dataSourceName);
-            var pathToExpand = pathsToExpand.join(".");
-            var req = store.get(result[association.mappedBy]);
-            req.onsuccess = function() {
-                if (req.result && !req.result[model.deletedFieldName]) {
-                    result[association.alias] = req.result;
+            adapter.service.expandHasOne(db, model, instance, association).then(function(result) {
+                var pathToExpand = pathsToExpand.join(".");
+                if (result) {
+                    instance[association.alias] = result;
                     if (pathsToExpand.length > 1) {
-                        expandPath(req.result, model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), db).then(function() {
+                        expandPath(result, model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), db).then(function() {
                             dfd.resolve();
                         }, function(e) {
                             dfd.reject(e);
@@ -490,56 +354,39 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                         dfd.resolve();
                     }
                 } else {
-                    result[association.alias] = null;
+                    instance[association.alias] = null;
                     dfd.resolve();
                 }
-            };
-            req.onerror = function() {
-                dfd.reject(this.error);
-            };
+            });
             return dfd.promise;
         };
         // Expands a has many model association
-        var expandHasMany = function(model, result, association, db, pathsToExpand) {
+        var expandHasMany = function(model, instance, association, db, pathsToExpand) {
             var dfd = $q.defer();
-            var tx = db.transaction([ model.dataSourceName ]);
-            var store = tx.objectStore(model.dataSourceName);
-            var pathToExpand = pathsToExpand.join(".");
-            var index = store.index(association.mappedBy);
-            var req = index.openCursor();
-            var results = [];
-            req.onsuccess = function(event) {
-                var cursor = event.target.result;
-                if (cursor) {
-                    if (!cursor.value[model.deletedFieldName] && cursor.key === result[model.primaryKeyFieldName]) {
-                        results.push(cursor.value);
-                    }
-                    cursor.continue();
-                } else {
-                    var filter = association.getOptions(result).$filter();
-                    if (filter) {
-                        results = applyFilter(results, filter);
-                    }
-                    result[association.alias] = results;
-                    if (pathsToExpand.length > 1) {
-                        var i;
-                        var promises = [];
-                        for (i = 0; i < results.length; i++) {
-                            promises.push(expandPath(results[i], model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), db));
-                        }
-                        $q.all(promises).then(function() {
-                            dfd.resolve();
-                        }, function(e) {
-                            dfd.reject(e);
-                        });
-                    } else {
-                        dfd.resolve();
-                    }
+            adapter.service.expandHasMany(db, model, instance, association).then(function(results) {
+                var pathToExpand = pathsToExpand.join(".");
+                var filter = association.getOptions(instance).$filter();
+                if (filter) {
+                    results = applyFilter(results, filter);
                 }
-            };
-            req.onerror = function() {
-                dfd.reject(this.error);
-            };
+                instance[association.alias] = results;
+                if (pathsToExpand.length > 1) {
+                    var i;
+                    var promises = [];
+                    for (i = 0; i < results.length; i++) {
+                        promises.push(expandPath(results[i], model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), db));
+                    }
+                    $q.all(promises).then(function() {
+                        dfd.resolve();
+                    }, function(e) {
+                        dfd.reject(e);
+                    });
+                } else {
+                    dfd.resolve();
+                }
+            }, function(e) {
+                dfd.reject(e);
+            });
             return dfd.promise;
         };
         // Expands a Model association given an expand path
@@ -580,7 +427,7 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
                 $q.all(promises).then(function() {
                     dfd.resolve();
                 }, function(e) {
-                    $log.error("IndexedDBAdapter: PerformExpand", e, $expand, result);
+                    $log.error("BrowserStorageAdapter: PerformExpand", e, $expand, result);
                     dfd.reject(e);
                 });
             } else {
@@ -644,8 +491,703 @@ angular.module("recall.adapter.indexedDB", [ "recall" ]).provider("recallIndexed
             }
             return results;
         };
+        init();
         return adapter;
     } ];
+} ]);
+
+angular.module("recall.adapter.browserStorage").factory("recallIndexedDBService", [ "$q", "$window", "recall", function($q, $window, recall) {
+    var indexedDBService = {};
+    indexedDBService.migrate = function(db) {
+        var i;
+        var model;
+        var field;
+        var indexName;
+        var objectStore;
+        var models = recall.getModels();
+        for (i = 0; i < models.length; i++) {
+            model = models[i];
+            if (!db.objectStoreNames.contains(model.dataSourceName)) {
+                objectStore = db.createObjectStore(model.dataSourceName, {
+                    keyPath: model.primaryKeyFieldName
+                });
+                for (field in model.fields) {
+                    if (model.fields.hasOwnProperty(field)) {
+                        if (model.fields[field].unique === true || model.fields[field].index !== false) {
+                            indexName = model.fields[field].index === true ? field : model.fields[field].index;
+                            objectStore.createIndex(field, indexName, {
+                                unique: model.fields[field].unique
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    };
+    // Handler for when the DB version is changed in another tab
+    indexedDBService.handleVersionChange = function(db) {
+        db.onversionchange = function() {
+            db.close();
+            alert("A new version of this page is ready. Please reload!");
+        };
+    };
+    indexedDBService.connect = function(dbName, dbVersion) {
+        var dfd = $q.defer();
+        var openRequest = $window.indexedDB.open(dbName, dbVersion);
+        openRequest.onupgradeneeded = function(event) {
+            indexedDBService.handleVersionChange(event.target.result);
+            indexedDBService.migrate(event.target.result);
+            dfd.resolve(event.target.result);
+        };
+        openRequest.onsuccess = function(event) {
+            indexedDBService.handleVersionChange(event.target.result);
+            dfd.resolve(event.target.result);
+        };
+        openRequest.onerror = function(event) {
+            dfd.reject(event.target.errorCode);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.create = function(db, theModel, modelInstance) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
+        var store = tx.objectStore(theModel.dataSourceName);
+        var req = store.add(modelInstance);
+        req.onsuccess = function() {
+            dfd.resolve(modelInstance);
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.findOne = function(db, theModel, pk, includeDeleted) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ theModel.dataSourceName ]);
+        var store = tx.objectStore(theModel.dataSourceName);
+        var req = store.get(pk);
+        req.onsuccess = function() {
+            if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
+                dfd.resolve(req.result);
+            } else {
+                dfd.resolve(null);
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.find = function(db, theModel, includeDeleted) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ theModel.dataSourceName ]);
+        var store = tx.objectStore(theModel.dataSourceName);
+        var req = store.openCursor();
+        var results = [];
+        req.onsuccess = function(event) {
+            var cursor = event.target.result;
+            if (cursor) {
+                if (includeDeleted || !cursor.value[theModel.deletedFieldName]) {
+                    results.push(cursor.value);
+                }
+                cursor.continue();
+            } else {
+                dfd.resolve(results);
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.update = function(db, theModel, pk, modelInstance, includeDeleted) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
+        var store = tx.objectStore(theModel.dataSourceName);
+        var req = store.get(pk);
+        req.onsuccess = function() {
+            if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
+                var result = req.result;
+                delete modelInstance[theModel.primaryKeyFieldName];
+                angular.extend(result, modelInstance);
+                // TODO: Convert all dates to ISO Format
+                result[theModel.lastModifiedFieldName] = new Date().toISOString();
+                result = theModel.getRawModelObject(result, false);
+                var updateReq = store.put(result);
+                updateReq.onsuccess = function() {
+                    dfd.resolve(result);
+                };
+                updateReq.onerror = function() {
+                    dfd.reject(this.error);
+                };
+            } else {
+                dfd.resolve(null);
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.remove = function(db, theModel, pk) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
+        var store = tx.objectStore(theModel.dataSourceName);
+        var req = store.get(pk);
+        req.onsuccess = function() {
+            if (req.result && !req.result[theModel.deletedFieldName]) {
+                var result = req.result;
+                result[theModel.deletedFieldName] = true;
+                result[theModel.lastModifiedFieldName] = new Date().toISOString();
+                var updateReq = store.put(result);
+                updateReq.onsuccess = function() {
+                    dfd.resolve(null);
+                };
+                updateReq.onerror = function() {
+                    dfd.reject(this.error);
+                };
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.synchronize = function(db, theModel, merge, remove) {
+        merge = merge || [];
+        remove = remove || [];
+        var tx = db.transaction([ theModel.dataSourceName ], "readwrite");
+        var objectStore = tx.objectStore(theModel.dataSourceName);
+        var i;
+        var promises = [];
+        for (i = 0; i < merge.length; i++) {
+            promises.push(createOrUpdate(objectStore, theModel, merge[i]));
+        }
+        for (i = 0; i < remove.length; i++) {
+            promises.push(hardRemove(objectStore, theModel, remove[i][theModel.primaryKeyFieldName]));
+        }
+        return $q.all(promises);
+    };
+    indexedDBService.expandHasOne = function(db, model, result, association) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ model.dataSourceName ]);
+        var store = tx.objectStore(model.dataSourceName);
+        var req = store.get(result[association.mappedBy]);
+        req.onsuccess = function() {
+            if (req.result && !req.result[model.deletedFieldName]) {
+                dfd.resolve(req.result);
+            } else {
+                dfd.resolve(null);
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    indexedDBService.expandHasMany = function(db, model, result, association) {
+        var dfd = $q.defer();
+        var tx = db.transaction([ model.dataSourceName ]);
+        var store = tx.objectStore(model.dataSourceName);
+        var index = store.index(association.mappedBy);
+        var req = index.openCursor();
+        var results = [];
+        req.onsuccess = function(event) {
+            var cursor = event.target.result;
+            if (cursor) {
+                if (!cursor.value[model.deletedFieldName] && cursor.key === result[model.primaryKeyFieldName]) {
+                    results.push(cursor.value);
+                }
+                cursor.continue();
+            } else {
+                dfd.resolve(results);
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    var createOrUpdate = function(objectStore, theModel, modelInstance) {
+        var dfd = $q.defer();
+        var req = objectStore.get(modelInstance[theModel.primaryKeyFieldName]);
+        req.onsuccess = function() {
+            var result = req.result;
+            if (result) {
+                angular.extend(result, modelInstance);
+                result = theModel.getRawModelObject(result, false);
+                var updateReq = objectStore.put(result);
+                updateReq.onsuccess = function() {
+                    dfd.resolve(result);
+                };
+                updateReq.onerror = function() {
+                    dfd.reject(this.error);
+                };
+            } else {
+                var createReq = objectStore.add(modelInstance);
+                createReq.onsuccess = function() {
+                    dfd.resolve(modelInstance);
+                };
+                createReq.onerror = function() {
+                    dfd.reject(this.error);
+                };
+            }
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    var hardRemove = function(objectStore, theModel, pk) {
+        var dfd = $q.defer();
+        var req = objectStore.delete(pk);
+        req.onsuccess = function() {
+            dfd.resolve();
+        };
+        req.onerror = function() {
+            dfd.reject(this.error);
+        };
+        return dfd.promise;
+    };
+    return indexedDBService;
+} ]);
+
+angular.module("recall.adapter.browserStorage").factory("recallWebSQLService", [ "$log", "$q", "$window", "recall", function($log, $q, $window, recall) {
+    var webSQLService = {};
+    webSQLService.migrate = function(db) {
+        var dfd = $q.defer();
+        createTables(db).then(function() {
+            migrateTables(db).then(function() {
+                dfd.resolve();
+            }, function(e) {
+                dfd.reject(e);
+            });
+        }, function(e) {
+            dfd.reject(e);
+        });
+        return dfd.promise;
+    };
+    webSQLService.connect = function(dbName, dbVersion, dbSize) {
+        var dfd = $q.defer();
+        try {
+            var theDb = $window.openDatabase(dbName, dbVersion.toString(), "Recall WebSQL Database", dbSize);
+            webSQLService.migrate(theDb).then(function() {
+                dfd.resolve(theDb);
+            }, function(e) {
+                dfd.reject(e);
+            });
+        } catch (e) {
+            dfd.reject(e);
+        }
+        return dfd.promise;
+    };
+    webSQLService.create = function(db, theModel, modelInstance) {
+        var dfd = $q.defer();
+        db.transaction(function(tx) {
+            var columns = [];
+            var columnValues = [];
+            var placeholders = [];
+            var field;
+            for (field in theModel.fields) {
+                if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field)) {
+                    columns.push("`" + field + "`");
+                    columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
+                    placeholders.push("?");
+                }
+            }
+            var sql = "INSERT INTO `" + theModel.dataSourceName + "` (" + columns.join(",") + ") VALUES (" + placeholders.join(",") + ")";
+            $log.debug("WebSQLService: " + sql, columnValues);
+            tx.executeSql(sql, columnValues, function() {
+                dfd.resolve(modelInstance);
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.findOne = function(db, theModel, pk, includeDeleted) {
+        var dfd = $q.defer();
+        db.transaction(function(tx) {
+            var sql = "SELECT * FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
+            if (!includeDeleted && theModel.deletedFieldName) {
+                sql += " AND `" + theModel.deletedFieldName + "`=0";
+            }
+            $log.debug("WebSQLService: " + sql, [ pk ]);
+            tx.executeSql(sql, [ pk ], function(tx, result) {
+                var results = transformSQLResult(theModel, result);
+                if (results[0]) {
+                    dfd.resolve(results[0]);
+                } else {
+                    dfd.reject(null);
+                }
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.find = function(db, theModel, includeDeleted) {
+        var dfd = $q.defer();
+        db.transaction(function(tx) {
+            var sql = "SELECT * FROM `" + theModel.dataSourceName + "`";
+            if (!includeDeleted && theModel.deletedFieldName) {
+                sql += " WHERE `" + theModel.deletedFieldName + "`=0";
+            }
+            $log.debug("WebSQLService: " + sql);
+            tx.executeSql(sql, [], function(tx, result) {
+                var results = transformSQLResult(theModel, result);
+                dfd.resolve(results);
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.update = function(db, theModel, pk, modelInstance, includeDeleted) {
+        var dfd = $q.defer();
+        modelInstance = theModel.getRawModelObject(modelInstance, false);
+        modelInstance[theModel.lastModifiedFieldName] = new Date();
+        db.transaction(function(tx) {
+            var columns = [];
+            var columnValues = [];
+            var field;
+            for (field in theModel.fields) {
+                if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field) && field !== theModel.primaryKeyFieldName) {
+                    columns.push("`" + field + "`=?");
+                    columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
+                }
+            }
+            columnValues.push(pk);
+            var sql = "UPDATE `" + theModel.dataSourceName + "` SET " + columns.join(",") + " WHERE `" + theModel.primaryKeyFieldName + "`=?";
+            if (!includeDeleted && theModel.deletedFieldName) {
+                sql += " AND `" + theModel.deletedFieldName + "`=0";
+            }
+            $log.debug("WebSQLService: " + sql, columnValues);
+            tx.executeSql(sql, columnValues, function() {
+                dfd.resolve(modelInstance);
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.remove = function(db, theModel, pk) {
+        var dfd = $q.defer();
+        var columns = [ "`" + theModel.lastModifiedFieldName + "`=?", "`" + theModel.deletedFieldName + "`=?" ];
+        var columnValues = [ new Date().toISOString(), 1, pk ];
+        db.transaction(function(tx) {
+            var sql = "UPDATE `" + theModel.dataSourceName + "` SET " + columns.join(",") + " WHERE `" + theModel.primaryKeyFieldName + "`=?";
+            $log.debug("WebSQLService: " + sql, columnValues);
+            tx.executeSql(sql, columnValues, function() {
+                dfd.resolve(null);
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.synchronize = function(db, theModel, merge, remove) {
+        var dfd = $q.defer();
+        merge = merge || [];
+        remove = remove || [];
+        db.transaction(function(tx) {
+            var i;
+            var promises = [];
+            for (i = 0; i < merge.length; i++) {
+                promises.push(createOrUpdate(tx, theModel, merge[i]));
+            }
+            for (i = 0; i < remove.length; i++) {
+                promises.push(hardRemove(tx, theModel, remove[i][theModel.primaryKeyFieldName]));
+            }
+            $q.all(promises).then(function(results) {
+                dfd.resolve(results);
+            }, function(e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.expandHasOne = function(db, model, result, association) {
+        var dfd = $q.defer();
+        var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + model.primaryKeyFieldName + "`=?";
+        if (model.deletedFieldName) {
+            sql += " AND `" + model.deletedFieldName + "`=0";
+        }
+        $log.debug("WebSQLService: " + sql, [ result[association.mappedBy] ]);
+        db.transaction(function(tx) {
+            tx.executeSql(sql, [ result[association.mappedBy] ], function(tx, response) {
+                var results = transformSQLResult(model, response);
+                if (results[0]) {
+                    dfd.resolve(results[0]);
+                } else {
+                    dfd.resolve(null);
+                }
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    webSQLService.expandHasMany = function(db, model, result, association) {
+        var dfd = $q.defer();
+        var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + association.mappedBy + "`=?";
+        if (model.deletedFieldName) {
+            sql += " AND `" + model.deletedFieldName + "`=0";
+        }
+        $log.debug("WebSQLService: " + sql, [ result[model.primaryKeyFieldName] ]);
+        db.transaction(function(tx) {
+            tx.executeSql(sql, [ result[model.primaryKeyFieldName] ], function(tx, response) {
+                var results = transformSQLResult(model, response);
+                dfd.resolve(results);
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    var createTable = function(model, fields, tx) {
+        var dfd = $q.defer();
+        var sql = "CREATE TABLE IF NOT EXISTS `" + model.dataSourceName + "` (" + fields.join(", ") + ")";
+        $log.debug("WebSQLService: " + sql);
+        tx.executeSql(sql, [], function() {
+            dfd.resolve();
+        }, function(tx, e) {
+            dfd.reject(e);
+        });
+        return dfd.promise;
+    };
+    var createTables = function(db) {
+        var promises = [];
+        db.transaction(function(tx) {
+            var i;
+            var model;
+            var field;
+            var column;
+            var fields;
+            var models = recall.getModels();
+            for (i = 0; i < models.length; i++) {
+                model = models[i];
+                fields = [];
+                for (field in model.fields) {
+                    if (model.fields.hasOwnProperty(field)) {
+                        column = "`" + model.fields[field].name + "`";
+                        switch (model.fields[field].type) {
+                          case "STRING":
+                            column += " TEXT";
+                            break;
+
+                          case "NUMBER":
+                            column += " REAL";
+                            break;
+
+                          case "DATE":
+                            column += " TEXT";
+                            break;
+
+                          case "BOOLEAN":
+                            column += " INTEGER";
+                            break;
+
+                          default:
+                            return $q.reject("WebSQLService: Migrate - An unknown field type was found.");
+                        }
+                        if (model.fields[field].primaryKey) {
+                            column += " PRIMARY KEY";
+                        }
+                        if (model.fields[field].unique) {
+                            column += " UNIQUE";
+                        }
+                        if (model.fields[field].notNull) {
+                            column += " NOT NULL";
+                        }
+                        fields.push(column);
+                    }
+                }
+                promises.push(createTable(model, fields, tx));
+            }
+        });
+        return $q.all(promises);
+    };
+    var addColumnToTable = function(modelField, tableName, tx) {
+        var dfd = $q.defer();
+        var column = "`" + modelField.name + "`";
+        switch (modelField.type) {
+          case "STRING":
+            column += " TEXT";
+            break;
+
+          case "NUMBER":
+            column += " REAL";
+            break;
+
+          case "DATE":
+            column += " TEXT";
+            break;
+
+          case "BOOLEAN":
+            column += " INTEGER";
+            break;
+
+          default:
+            return $q.reject("WebSQLService: Migrate - An unknown field type was found.");
+        }
+        if (modelField.primaryKey) {
+            column += " PRIMARY KEY";
+        }
+        if (modelField.unique) {
+            column += " UNIQUE";
+        }
+        if (modelField.notNull) {
+            column += " NOT NULL";
+        }
+        var sql = "ALTER TABLE `" + tableName + "` ADD " + column;
+        $log.debug("WebSQLService: " + sql);
+        tx.executeSql(sql, [], function() {
+            dfd.resolve();
+        }, function(tx, e) {
+            dfd.reject(e);
+        });
+        return dfd.promise;
+    };
+    var migrateTable = function(model, tableRows, tx) {
+        var promises = [];
+        var i;
+        var row;
+        var tableSQL = null;
+        for (i = 0; i < tableRows.length; i++) {
+            row = tableRows[i];
+            if (row.tbl_name === model.dataSourceName) {
+                tableSQL = row.sql;
+                break;
+            }
+        }
+        if (tableSQL) {
+            var field;
+            var missingFields = [];
+            for (field in model.fields) {
+                // TODO: This needs to check if the field name is the same as the model name
+                if (model.fields.hasOwnProperty(field) && tableSQL.indexOf("`" + field + "`") === -1) {
+                    missingFields.push(model.fields[field]);
+                }
+            }
+            for (i = 0; i < missingFields.length; i++) {
+                promises.push(addColumnToTable(missingFields[i], model.dataSourceName, tx));
+            }
+        }
+        return $q.all(promises);
+    };
+    var migrateTables = function(db) {
+        var dfd = $q.defer();
+        db.transaction(function(tx) {
+            var sql = "SELECT tbl_name, sql from sqlite_master WHERE type = 'table'";
+            $log.debug("WebSQLService: " + sql);
+            tx.executeSql(sql, [], function(tx, result) {
+                var model;
+                var models = recall.getModels();
+                var promises = [];
+                var i;
+                var tableRows = [];
+                for (i = 0; i < result.rows.length; i++) {
+                    tableRows.push(result.rows.item(i));
+                }
+                for (i = 0; i < models.length; i++) {
+                    model = models[i];
+                    promises.push(migrateTable(model, tableRows, tx));
+                }
+                $q.all(promises).then(function() {
+                    dfd.resolve();
+                }, function(e) {
+                    dfd.reject(e);
+                });
+            }, function(tx, e) {
+                dfd.reject(e);
+            });
+        });
+        return dfd.promise;
+    };
+    var createOrUpdate = function(tx, theModel, modelInstance) {
+        var dfd = $q.defer();
+        var columns = [];
+        var columnValues = [];
+        var placeholders = [];
+        var field;
+        for (field in theModel.fields) {
+            if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field)) {
+                columns.push("`" + field + "`");
+                columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
+                placeholders.push("?");
+            }
+        }
+        var sql = "INSERT OR REPLACE INTO `" + theModel.dataSourceName + "` (" + columns.join(",") + ") VALUES (" + placeholders.join(",") + ")";
+        $log.debug("WebSQLAdapter: " + sql, columnValues);
+        tx.executeSql(sql, columnValues, function(tx, result) {
+            var results = transformSQLResult(theModel, result);
+            dfd.resolve(results[0]);
+        }, function(tx, e) {
+            dfd.reject(e);
+        });
+        return dfd.promise;
+    };
+    var hardRemove = function(tx, theModel, pk) {
+        var dfd = $q.defer();
+        var sql = "DELETE FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
+        $log.debug("WebSQLAdapter: " + sql, [ pk ]);
+        tx.executeSql(sql, [ pk ], function() {
+            dfd.resolve();
+        }, function(tx, e) {
+            dfd.reject(e);
+        });
+        return dfd.promise;
+    };
+    var convertValueToSQL = function(field, modelInstance) {
+        switch (field.type) {
+          case "STRING":
+          case "NUMBER":
+            return modelInstance[field.name];
+
+          case "DATE":
+            if (modelInstance[field.name] instanceof Date) {
+                return modelInstance[field.name].toISOString();
+            }
+            return new Date(modelInstance[field.name]).toISOString();
+
+          case "BOOLEAN":
+            if (modelInstance[field.name] === true || modelInstance[field.name] === 1) {
+                return 1;
+            }
+            return 0;
+        }
+    };
+    var convertValueToModel = function(field, sqlResultInstance) {
+        switch (field.type) {
+          case "STRING":
+          case "NUMBER":
+          case "DATE":
+            return sqlResultInstance[field.name];
+
+          case "BOOLEAN":
+            return sqlResultInstance[field.name] === 1;
+        }
+    };
+    var getSQLModelObject = function(theModel, result) {
+        var field;
+        var obj = {};
+        for (field in theModel.fields) {
+            if (theModel.fields.hasOwnProperty(field) && result.hasOwnProperty(field)) {
+                obj[field] = convertValueToModel(theModel.fields[field], result);
+            }
+        }
+        return obj;
+    };
+    var transformSQLResult = function(theModel, result) {
+        var results = [];
+        var i;
+        for (i = 0; i < result.rows.length; i++) {
+            results.push(getSQLModelObject(theModel, result.rows.item(i)));
+        }
+        return results;
+    };
+    return webSQLService;
 } ]);
 
 angular.module("recall.adapter.oDataREST", [ "recall" ]).provider("recallODataRESTAdapter", [ function() {
@@ -1106,775 +1648,6 @@ angular.module("recall.adapter.sync", [ "recall" ]).provider("recallSyncAdapter"
                 }, handleError);
             }, handleError);
             return dfd.promise;
-        };
-        return adapter;
-    } ];
-} ]);
-
-angular.module("recall.adapter.webSQL", [ "recall" ]).provider("recallWebSQLAdapter", [ function() {
-    var providerConfig = {};
-    // Sets the name of the WebSQL DB database to use
-    providerConfig.dbName = "recall";
-    this.setDbName = function(dbName) {
-        providerConfig.dbName = dbName;
-        return this;
-    };
-    // Sets the version of the WebSQL DB to use
-    providerConfig.dbVersion = 1;
-    this.setDbVersion = function(dbVersion) {
-        providerConfig.dbVersion = dbVersion;
-        return this;
-    };
-    // Sets the size of the WebSQL DB
-    providerConfig.dbSize = 5 * 1024 * 1024;
-    // 5MB
-    this.setDbSize = function(dbSize) {
-        providerConfig.dbSize = dbSize;
-        return this;
-    };
-    // Sets the default function to be used as a "GUID" generator
-    providerConfig.pkGenerator = function() {
-        function s4() {
-            return Math.floor((1 + Math.random()) * 65536).toString(16).substring(1);
-        }
-        return s4() + s4() + "-" + s4() + "-" + s4() + "-" + s4() + "-" + s4() + s4() + s4();
-    };
-    this.setPkGenerator = function(pkGenerator) {
-        providerConfig.pkGenerator = pkGenerator;
-        return this;
-    };
-    // Drops the WebSQL DB database
-    this.dropDatabase = function() {
-        return true;
-    };
-    this.$get = [ "$log", "$q", "$window", "recall", "recallAdapterResponse", function($log, $q, $window, recall, AdapterResponse) {
-        var adapter = {};
-        var connectionPromise;
-        var db;
-        var generatePrimaryKey = providerConfig.pkGenerator;
-        var createTable = function(model, fields, tx) {
-            var dfd = $q.defer();
-            var sql = "CREATE TABLE IF NOT EXISTS `" + model.dataSourceName + "` (" + fields.join(", ") + ")";
-            $log.debug("WebSQLAdapter: " + sql);
-            tx.executeSql(sql, [], function() {
-                dfd.resolve();
-            }, function(tx, e) {
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        var createTables = function(db) {
-            var promises = [];
-            db.transaction(function(tx) {
-                var i;
-                var model;
-                var field;
-                var column;
-                var fields;
-                var models = recall.getModels();
-                for (i = 0; i < models.length; i++) {
-                    model = models[i];
-                    fields = [];
-                    for (field in model.fields) {
-                        if (model.fields.hasOwnProperty(field)) {
-                            column = "`" + model.fields[field].name + "`";
-                            switch (model.fields[field].type) {
-                              case "STRING":
-                                column += " TEXT";
-                                break;
-
-                              case "NUMBER":
-                                column += " REAL";
-                                break;
-
-                              case "DATE":
-                                column += " TEXT";
-                                break;
-
-                              case "BOOLEAN":
-                                column += " INTEGER";
-                                break;
-
-                              default:
-                                $log.error("WebSQLAdapter: Migrate - An unknown field type was found.");
-                                return;
-                            }
-                            if (model.fields[field].primaryKey) {
-                                column += " PRIMARY KEY";
-                            }
-                            if (model.fields[field].unique) {
-                                column += " UNIQUE";
-                            }
-                            if (model.fields[field].notNull) {
-                                column += " NOT NULL";
-                            }
-                            fields.push(column);
-                        }
-                    }
-                    promises.push(createTable(model, fields, tx));
-                }
-            });
-            return $q.all(promises);
-        };
-        var addColumnToTable = function(modelField, tableName, tx) {
-            var dfd = $q.defer();
-            var column = "`" + modelField.name + "`";
-            switch (modelField.type) {
-              case "STRING":
-                column += " TEXT";
-                break;
-
-              case "NUMBER":
-                column += " REAL";
-                break;
-
-              case "DATE":
-                column += " TEXT";
-                break;
-
-              case "BOOLEAN":
-                column += " INTEGER";
-                break;
-
-              default:
-                $log.error("WebSQLAdapter: Migrate - An unknown field type was found.");
-                return;
-            }
-            if (modelField.primaryKey) {
-                column += " PRIMARY KEY";
-            }
-            if (modelField.unique) {
-                column += " UNIQUE";
-            }
-            if (modelField.notNull) {
-                column += " NOT NULL";
-            }
-            var sql = "ALTER TABLE `" + tableName + "` ADD " + column;
-            $log.debug("WebSQLAdapter: " + sql);
-            tx.executeSql(sql, [], function() {
-                dfd.resolve();
-            }, function(tx, e) {
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        var migrateTable = function(model, tableRows, tx) {
-            var promises = [];
-            var i;
-            var row;
-            var tableSQL = null;
-            for (i = 0; i < tableRows.length; i++) {
-                row = tableRows[i];
-                if (row.tbl_name === model.dataSourceName) {
-                    tableSQL = row.sql;
-                    break;
-                }
-            }
-            if (tableSQL) {
-                var field;
-                var missingFields = [];
-                for (field in model.fields) {
-                    // TODO: This needs to check if the field name is the same as the model name
-                    if (model.fields.hasOwnProperty(field) && tableSQL.indexOf("`" + field + "`") === -1) {
-                        missingFields.push(model.fields[field]);
-                    }
-                }
-                for (i = 0; i < missingFields.length; i++) {
-                    promises.push(addColumnToTable(missingFields[i], model.dataSourceName, tx));
-                }
-            }
-            return $q.all(promises);
-        };
-        var migrateTables = function(db) {
-            var dfd = $q.defer();
-            db.transaction(function(tx) {
-                var sql = "SELECT tbl_name, sql from sqlite_master WHERE type = 'table'";
-                $log.debug("WebSQLAdapter: " + sql);
-                tx.executeSql(sql, [], function(tx, result) {
-                    var model;
-                    var models = recall.getModels();
-                    var promises = [];
-                    var i;
-                    var tableRows = [];
-                    for (i = 0; i < result.rows.length; i++) {
-                        tableRows.push(result.rows.item(i));
-                    }
-                    for (i = 0; i < models.length; i++) {
-                        model = models[i];
-                        promises.push(migrateTable(model, tableRows, tx));
-                    }
-                    $q.all(promises).then(function() {
-                        dfd.resolve();
-                    }, function(e) {
-                        dfd.reject(e);
-                    });
-                }, function(tx, e) {
-                    dfd.reject(e);
-                });
-            });
-            return dfd.promise;
-        };
-        // Handles version differences in the database and initializes or migrates the db
-        var migrate = function(db) {
-            var dfd = $q.defer();
-            createTables(db).then(function() {
-                migrateTables(db).then(function() {
-                    dfd.resolve();
-                }, function(e) {
-                    $log.error("WebSQLAdapter: Table Migration Failed", e);
-                    dfd.reject(e);
-                });
-            }, function(e) {
-                $log.error("WebSQLAdapter: Table Creation Failed", e);
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        // Connects to the database
-        var connect = function() {
-            var dfd = $q.defer();
-            if (db) {
-                dfd.resolve(db);
-            } else if (connectionPromise) {
-                return connectionPromise;
-            } else {
-                try {
-                    var theDb = $window.openDatabase(providerConfig.dbName, providerConfig.dbVersion.toString(), "Recall WebSQL Database", providerConfig.dbSize);
-                    migrate(theDb).then(function() {
-                        db = theDb;
-                        dfd.resolve(db);
-                    }, function(e) {
-                        dfd.reject(e);
-                    });
-                } catch (e) {
-                    dfd.reject(e);
-                }
-            }
-            connectionPromise = dfd.promise;
-            return dfd.promise;
-        };
-        // TODO: Cascade create
-        /**
-                 * Creates a new Entity
-                 * @param {Object} theModel The model of the entity to create
-                 * @param {Object} modelInstance The entity to create
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-        adapter.create = function(theModel, modelInstance) {
-            var dfd = $q.defer();
-            var response;
-            var buildError = function(e) {
-                response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("WebSQLAdapter: Create " + theModel.modelName, response, modelInstance);
-                return response;
-            };
-            modelInstance[theModel.primaryKeyFieldName] = generatePrimaryKey();
-            modelInstance = theModel.getRawModelObject(modelInstance, false);
-            modelInstance[theModel.lastModifiedFieldName] = new Date();
-            connect().then(function() {
-                db.transaction(function(tx) {
-                    var columns = [];
-                    var columnValues = [];
-                    var placeholders = [];
-                    var field;
-                    for (field in theModel.fields) {
-                        if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field)) {
-                            columns.push("`" + field + "`");
-                            columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
-                            placeholders.push("?");
-                        }
-                    }
-                    var sql = "INSERT INTO `" + theModel.dataSourceName + "` (" + columns.join(",") + ") VALUES (" + placeholders.join(",") + ")";
-                    $log.debug("WebSQLAdapter: " + sql, columnValues);
-                    tx.executeSql(sql, columnValues, function(tx, result) {
-                        response = new AdapterResponse(modelInstance, 1, AdapterResponse.CREATED);
-                        $log.debug("WebSQLAdapter: Create " + theModel.modelName, response);
-                        dfd.resolve(response);
-                    }, function(tx, e) {
-                        dfd.reject(buildError(e));
-                    });
-                });
-            }, function(e) {
-                dfd.reject(buildError(e));
-            });
-            return dfd.promise;
-        };
-        /**
-                 * Finds a single entity given a primary key
-                 * @param {Object} theModel The model of the entity to find
-                 * @param {String|Number} pk The primary key of the entity to find
-                 * @param {PreparedQueryOptions} [queryOptions] The query options to use for $expand
-                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-        adapter.findOne = function(theModel, pk, queryOptions, includeDeleted) {
-            var dfd = $q.defer();
-            var response;
-            var buildError = function(e, status) {
-                response = new AdapterResponse(e, 0, status || AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("WebSQLAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
-                return response;
-            };
-            connect().then(function() {
-                db.transaction(function(tx) {
-                    var sql = "SELECT * FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
-                    if (!includeDeleted && theModel.deletedFieldName) {
-                        sql += " AND `" + theModel.deletedFieldName + "`=0";
-                    }
-                    $log.debug("WebSQLAdapter: " + sql, [ pk ]);
-                    tx.executeSql(sql, [ pk ], function(tx, result) {
-                        var results = transformSQLResult(theModel, result);
-                        if (results[0]) {
-                            performExpand(results[0], theModel, queryOptions, tx).then(function() {
-                                response = new AdapterResponse(results[0], 1);
-                                $log.debug("WebSQLAdapter: FindOne " + theModel.modelName, response, pk, queryOptions);
-                                dfd.resolve(response);
-                            }, function(e) {
-                                dfd.reject(buildError(e));
-                            });
-                        } else {
-                            dfd.reject(buildError("Not Found", AdapterResponse.NOT_FOUND));
-                        }
-                    }, function(tx, e) {
-                        dfd.reject(buildError(e));
-                    });
-                });
-            }, function(e) {
-                dfd.reject(buildError(e));
-            });
-            return dfd.promise;
-        };
-        /**
-                 * Finds a set of Model entities
-                 * @param {Object} theModel The model of the entities to find
-                 * @param {PreparedQueryOptions} [queryOptions] The query options to use
-                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-        adapter.find = function(theModel, queryOptions, includeDeleted) {
-            var dfd = $q.defer();
-            var response;
-            var buildError = function(e) {
-                response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("WebSQLAdapter: Find " + theModel.modelName, response, queryOptions);
-                return response;
-            };
-            connect().then(function() {
-                db.transaction(function(tx) {
-                    var filterPredicate;
-                    if (queryOptions && queryOptions.$filter()) {
-                        filterPredicate = queryOptions.$filter();
-                    }
-                    var sql = "SELECT * FROM `" + theModel.dataSourceName + "`";
-                    if (!includeDeleted && theModel.deletedFieldName) {
-                        sql += " WHERE `" + theModel.deletedFieldName + "`=0";
-                    }
-                    $log.debug("WebSQLAdapter: " + sql);
-                    tx.executeSql(sql, [], function(tx, result) {
-                        var results = transformSQLResult(theModel, result);
-                        var i;
-                        var promises = [];
-                        for (i = 0; i < results.length; i++) {
-                            promises.push(performExpand(results[i], theModel, queryOptions, tx));
-                        }
-                        $q.all(promises).then(function() {
-                            results = applyFilter(results, filterPredicate);
-                            results = applyOrderBy(theModel, results, queryOptions);
-                            var totalCount = results.length;
-                            // TODO: This is not very efficient but indexedDB does not seem to support a better way with filters and ordering
-                            results = applyPaging(results, queryOptions);
-                            response = new AdapterResponse(results, totalCount);
-                            $log.debug("WebSQLAdapter: Find " + theModel.modelName, response, queryOptions);
-                            dfd.resolve(response);
-                        }, function(e) {
-                            dfd.reject(buildError(e));
-                        });
-                    }, function(tx, e) {
-                        dfd.reject(buildError(e));
-                    });
-                });
-            }, function(e) {
-                dfd.reject(buildError(e));
-            });
-            return dfd.promise;
-        };
-        // TODO: Cascade Update
-        /**
-                 * Updates a Model entity given the primary key of the entity
-                 * @param {Object} theModel The model of the entity to update
-                 * @param {String|Number} pk The primary key of the entity
-                 * @param {Object} modelInstance The entity to update
-                 * @param {Boolean} [includeDeleted=false] If true, includes soft-deleted entities
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-        adapter.update = function(theModel, pk, modelInstance, includeDeleted) {
-            var dfd = $q.defer();
-            var response;
-            var buildError = function(e) {
-                response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("WebSQLAdapter: Update " + theModel.modelName, response, modelInstance);
-                return response;
-            };
-            modelInstance = theModel.getRawModelObject(modelInstance, false);
-            modelInstance[theModel.lastModifiedFieldName] = new Date();
-            connect().then(function() {
-                db.transaction(function(tx) {
-                    var columns = [];
-                    var columnValues = [];
-                    var field;
-                    for (field in theModel.fields) {
-                        if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field) && field !== theModel.primaryKeyFieldName) {
-                            columns.push("`" + field + "`=?");
-                            columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
-                        }
-                    }
-                    columnValues.push(pk);
-                    var sql = "UPDATE `" + theModel.dataSourceName + "` SET " + columns.join(",") + " WHERE `" + theModel.primaryKeyFieldName + "`=?";
-                    if (!includeDeleted && theModel.deletedFieldName) {
-                        sql += " AND `" + theModel.deletedFieldName + "`=0";
-                    }
-                    $log.debug("WebSQLAdapter: " + sql, columnValues);
-                    tx.executeSql(sql, columnValues, function(tx, result) {
-                        response = new AdapterResponse(modelInstance, 1);
-                        $log.debug("WebSQLAdapter: Update " + theModel.modelName, response, modelInstance);
-                        dfd.resolve(response);
-                    }, function(tx, e) {
-                        dfd.reject(buildError(e));
-                    });
-                });
-            }, function(e) {
-                dfd.reject(buildError(e));
-            });
-            return dfd.promise;
-        };
-        // TODO: Cascade Delete:
-        /**
-                 * Removes an Entity given the primary key of the entity to remove
-                 * @param {Object} theModel The model of the entity to remove
-                 * @param {String|Number} pk The primary key of the entity
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-        adapter.remove = function(theModel, pk) {
-            var dfd = $q.defer();
-            var response;
-            var buildError = function(e) {
-                response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("WebSQLAdapter: Remove " + theModel.modelName, response);
-                return response;
-            };
-            var columns = [ "`" + theModel.lastModifiedFieldName + "`=?", "`" + theModel.deletedFieldName + "`=?" ];
-            var columnValues = [ new Date().toISOString(), 1, pk ];
-            connect().then(function() {
-                db.transaction(function(tx) {
-                    var sql = "UPDATE `" + theModel.dataSourceName + "` SET " + columns.join(",") + " WHERE `" + theModel.primaryKeyFieldName + "`=?";
-                    $log.debug("WebSQLAdapter: " + sql, columnValues);
-                    tx.executeSql(sql, columnValues, function(tx, result) {
-                        response = new AdapterResponse(null, 1, AdapterResponse.NO_CONTENT);
-                        $log.debug("WebSQLAdapter: Remove " + theModel.modelName, response);
-                        dfd.resolve(response);
-                    }, function(tx, e) {
-                        dfd.reject(buildError(e));
-                    });
-                });
-            }, function(e) {
-                dfd.reject(buildError(e));
-            });
-            return dfd.promise;
-        };
-        /**
-                 * Takes an Array of entities and creates/updates/deletes them
-                 * @param {Object} theModel The model of the entities to synchronize
-                 * @param {Array} dataToSync An array of objects to create/update/delete
-                 * @returns {promise} Resolved with an AdapterResponse
-                 */
-        adapter.synchronize = function(theModel, dataToSync) {
-            var dfd = $q.defer();
-            var response;
-            var buildError = function(e) {
-                response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
-                $log.error("WebSQLAdapter: Synchronize " + theModel.modelName, response, dataToSync);
-                return response;
-            };
-            connect().then(function() {
-                db.transaction(function(tx) {
-                    var i;
-                    var promises = [];
-                    for (i = 0; i < dataToSync.length; i++) {
-                        if (dataToSync[i][theModel.deletedFieldName]) {
-                            promises.push(hardRemove(theModel, tx, dataToSync[i][theModel.primaryKeyFieldName]));
-                        } else {
-                            promises.push(createOrUpdate(theModel, tx, dataToSync[i]));
-                        }
-                    }
-                    $q.all(promises).then(function(results) {
-                        response = new AdapterResponse(results, results.length, AdapterResponse.OK);
-                        $log.debug("WebSQLAdapter: Synchronize " + theModel.modelName, response, dataToSync);
-                        dfd.resolve(response);
-                    }, function(e) {
-                        dfd.reject(buildError(e));
-                    });
-                });
-            }, function(e) {
-                dfd.reject(buildError(e));
-            });
-            return dfd.promise;
-        };
-        // Creates a new Entity if not found or updates the existing one. Used in synchronization.
-        var createOrUpdate = function(theModel, tx, modelInstance) {
-            var dfd = $q.defer();
-            var columns = [];
-            var columnValues = [];
-            var placeholders = [];
-            var field;
-            for (field in theModel.fields) {
-                if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field)) {
-                    columns.push("`" + field + "`");
-                    columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
-                    placeholders.push("?");
-                }
-            }
-            var sql = "INSERT OR REPLACE INTO `" + theModel.dataSourceName + "` (" + columns.join(",") + ") VALUES (" + placeholders.join(",") + ")";
-            $log.debug("WebSQLAdapter: " + sql, columnValues);
-            tx.executeSql(sql, columnValues, function(tx, result) {
-                var results = transformSQLResult(theModel, result);
-                dfd.resolve(results[0]);
-            }, function(tx, e) {
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        // Hard deletes an Entity. Used in synchronization.
-        var hardRemove = function(theModel, tx, pk) {
-            var dfd = $q.defer();
-            var sql = "DELETE FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
-            $log.debug("WebSQLAdapter: " + sql, [ pk ]);
-            tx.executeSql(sql, [ pk ], function(tx, result) {
-                dfd.resolve();
-            }, function(tx, e) {
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        // Expands a has one model association
-        var expandHasOne = function(model, result, association, tx, pathsToExpand) {
-            var dfd = $q.defer();
-            var pathToExpand = pathsToExpand.join(".");
-            if (result[association.mappedBy] === undefined) {
-                result[association.mappedBy] = null;
-                dfd.resolve();
-                return dfd.promise;
-            }
-            var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + model.primaryKeyFieldName + "`=?";
-            if (model.deletedFieldName) {
-                sql += " AND `" + model.deletedFieldName + "`=0";
-            }
-            $log.debug("WebSQLAdapter: " + sql, [ result[association.mappedBy] ]);
-            tx.executeSql(sql, [ result[association.mappedBy] ], function(tx, response) {
-                var results = transformSQLResult(model, response);
-                if (results[0]) {
-                    result[association.alias] = results[0];
-                    if (pathsToExpand.length > 1) {
-                        expandPath(results[0], model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), tx).then(function() {
-                            dfd.resolve();
-                        }, function(e) {
-                            dfd.reject(e);
-                        });
-                    } else {
-                        dfd.resolve();
-                    }
-                } else {
-                    result[association.alias] = null;
-                    dfd.resolve();
-                }
-            }, function(tx, e) {
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        // Expands a has many model association
-        var expandHasMany = function(model, result, association, tx, pathsToExpand) {
-            var dfd = $q.defer();
-            var pathToExpand = pathsToExpand.join(".");
-            var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + association.mappedBy + "`=?";
-            if (model.deletedFieldName) {
-                sql += " AND `" + model.deletedFieldName + "`=0";
-            }
-            $log.debug("WebSQLAdapter: " + sql, [ result[model.primaryKeyFieldName] ]);
-            tx.executeSql(sql, [ result[model.primaryKeyFieldName] ], function(tx, response) {
-                var results = transformSQLResult(model, response);
-                var filter = association.getOptions(result).$filter();
-                if (filter) {
-                    results = applyFilter(results, filter);
-                }
-                result[association.alias] = results;
-                if (pathsToExpand.length > 1) {
-                    var i;
-                    var promises = [];
-                    for (i = 0; i < results.length; i++) {
-                        promises.push(expandPath(results[i], model, pathToExpand.substring(pathToExpand.indexOf(".") + 1), tx));
-                    }
-                    $q.all(promises).then(function() {
-                        dfd.resolve();
-                    }, function(e) {
-                        dfd.reject(e);
-                    });
-                } else {
-                    dfd.resolve();
-                }
-            }, function(tx, e) {
-                dfd.reject(e);
-            });
-            return dfd.promise;
-        };
-        // Expands a Model association given an expand path
-        // Recursive
-        var expandPath = function(result, theModel, pathToExpand, tx) {
-            var pathsToExpand = pathToExpand.split(".");
-            var toExpand = pathsToExpand[0];
-            if (toExpand) {
-                var association = theModel.getAssociationByAlias(toExpand);
-                var model = association.getModel();
-                if (association && model) {
-                    if (association.type === "hasOne") {
-                        return expandHasOne(model, result, association, tx, pathsToExpand);
-                    } else if (association.type === "hasMany") {
-                        return expandHasMany(model, result, association, tx, pathsToExpand);
-                    }
-                }
-            }
-            // There is nothing left to expand, just resolve.
-            var dfd = $q.defer();
-            dfd.resolve();
-            return dfd.promise;
-        };
-        // Expands all Model associations defined in the query options $expand clause
-        var performExpand = function(result, theModel, queryOptions, tx) {
-            var dfd = $q.defer();
-            var $expand;
-            var promises = [];
-            if (queryOptions) {
-                $expand = queryOptions.$expand();
-            }
-            if ($expand) {
-                var paths = $expand.split(",");
-                var i;
-                for (i = 0; i < paths.length; i++) {
-                    promises.push(expandPath(result, theModel, paths[i], tx));
-                }
-                $q.all(promises).then(function() {
-                    dfd.resolve();
-                }, function(e) {
-                    $log.error("WebSQLAdapter: PerformExpand", e, $expand, result);
-                    dfd.reject(e);
-                });
-            } else {
-                dfd.resolve();
-            }
-            return dfd.promise;
-        };
-        // Checks if a result matches a predicate filter
-        var resultMatchesFilters = function(result, predicate) {
-            return predicate.test(result);
-        };
-        // Applies a filter predicate to a set of results and returns an array of the matching results
-        var applyFilter = function(results, filterPredicate) {
-            if (filterPredicate && results) {
-                results = results.filter(function(a) {
-                    return resultMatchesFilters(a, filterPredicate);
-                });
-            }
-            return results;
-        };
-        // Sorts the data given an $orderBy clause in query options
-        var applyOrderBy = function(theModel, results, queryOptions) {
-            if (!queryOptions) {
-                return results;
-            }
-            var orderBy = queryOptions.$orderBy();
-            if (orderBy) {
-                var property = orderBy.split(" ")[0];
-                var direction = orderBy.split(" ")[1] || "";
-                var isDate = false;
-                if (theModel.fields[property] && theModel.fields[property].type === "DATE") {
-                    isDate = true;
-                }
-                results.sort(function(a, b) {
-                    var aTest = a[property];
-                    var bTest = b[property];
-                    if (isDate) {
-                        aTest = new Date(aTest);
-                        bTest = new Date(bTest);
-                    }
-                    if (aTest > bTest) {
-                        return direction.toLowerCase() === "desc" ? -1 : 1;
-                    }
-                    if (bTest > aTest) {
-                        return direction.toLowerCase() === "desc" ? 1 : -1;
-                    }
-                    return 0;
-                });
-            }
-            return results;
-        };
-        // Applies paging to a set of results and returns a sliced array of results
-        var applyPaging = function(results, queryOptions) {
-            if (!queryOptions) {
-                return results;
-            }
-            var top = queryOptions.$top();
-            var skip = queryOptions.$skip();
-            if (top > 0 && skip >= 0) {
-                results = results.slice(skip, skip + top);
-            }
-            return results;
-        };
-        var convertValueToSQL = function(field, modelInstance) {
-            switch (field.type) {
-              case "STRING":
-              case "NUMBER":
-                return modelInstance[field.name];
-
-              case "DATE":
-                if (modelInstance[field.name] instanceof Date) {
-                    return modelInstance[field.name].toISOString();
-                }
-                return new Date(modelInstance[field.name]).toISOString();
-
-              case "BOOLEAN":
-                if (modelInstance[field.name] === true || modelInstance[field.name] === 1) {
-                    return 1;
-                }
-                return 0;
-            }
-        };
-        var convertValueToModel = function(field, sqlResultInstance) {
-            switch (field.type) {
-              case "STRING":
-              case "NUMBER":
-              case "DATE":
-                return sqlResultInstance[field.name];
-
-              case "BOOLEAN":
-                return sqlResultInstance[field.name] === 1;
-            }
-        };
-        var getSQLModelObject = function(theModel, result) {
-            var field;
-            var obj = {};
-            for (field in theModel.fields) {
-                if (theModel.fields.hasOwnProperty(field) && result.hasOwnProperty(field)) {
-                    obj[field] = convertValueToModel(theModel.fields[field], result);
-                }
-            }
-            return obj;
-        };
-        var transformSQLResult = function(theModel, result) {
-            var results = [];
-            var i;
-            for (i = 0; i < result.rows.length; i++) {
-                results.push(getSQLModelObject(theModel, result.rows.item(i)));
-            }
-            return results;
         };
         return adapter;
     } ];

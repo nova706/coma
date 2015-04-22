@@ -1,31 +1,77 @@
 /*globals describe, sinon, beforeEach, module, inject, it, should*/
-describe("IndexedDBAdapter", function () {
+describe("BrowserStorageAdapter", function () {
     var provider;
     var adapter;
     var $rootScope;
     var $timeout;
+    var $q;
     var model;
-    var mockIndexedDB;
-    var $window;
+    var mockService;
 
     var isFunc = function (a) {
         return typeof a === 'function';
     };
 
-    beforeEach(module('recall.adapter.indexedDB', function (recallIndexedDBAdapterProvider) {
-        provider = recallIndexedDBAdapterProvider;
+    beforeEach(module('recall.adapter.browserStorage', function (recallBrowserStorageAdapterProvider) {
+        provider = recallBrowserStorageAdapterProvider;
     }));
 
-    beforeEach(inject(function (_$rootScope_, _$timeout_, _$window_) {
+    beforeEach(inject(function (_$rootScope_, _$timeout_, _$window_, _$q_) {
         $rootScope = _$rootScope_;
         $timeout = _$timeout_;
-        $window = _$window_;
-        mockIndexedDB = window.MockIndexedDB($timeout);
-        if ($window.indexedDB) {
-            angular.extend($window.indexedDB, mockIndexedDB);
-        } else {
-            $window.indexedDB = mockIndexedDB;
-        }
+        $q = _$q_;
+
+        _$window_.indexedDB = false;
+        _$window_.openDatabase = true;
+
+        mockService = {
+            connect: function (dbName, dbVersion, dbSize) {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            },
+            create: function (db, theModel, modelInstance) {
+                var dfd = $q.defer();
+                dfd.resolve(modelInstance);
+                return dfd.promise;
+            },
+            findOne: function (db, theModel, pk, includeDeleted) {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            },
+            find: function (db, theModel, includeDeleted) {
+                var dfd = $q.defer();
+                dfd.resolve([]);
+                return dfd.promise;
+            },
+            update: function (db, theModel, pk, modelInstance, includeDeleted) {
+                var dfd = $q.defer();
+                dfd.resolve(modelInstance);
+                return dfd.promise;
+            },
+            remove: function (db, theModel, pk) {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            },
+            synchronize: function (db, theModel, merge, remove) {
+                var dfd = $q.defer();
+                dfd.resolve([]);
+                return dfd.promise;
+            },
+            expandHasOne: function (db, model, result, association) {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            },
+            expandHasMany: function (db, model, result, association) {
+                var dfd = $q.defer();
+                dfd.resolve([]);
+                return dfd.promise;
+            }
+        };
+
         model = {
             dataSourceName: "testEndpoint",
             lastModifiedFieldName: "lastModified",
@@ -51,11 +97,17 @@ describe("IndexedDBAdapter", function () {
         it("Should open a connection to the DB specified", inject(function ($injector) {
             provider.setDbName('test');
             adapter = $injector.invoke(provider.$get);
-            sinon.stub($window.indexedDB, "open").returns({});
+            adapter.service = mockService;
+
+            sinon.stub(adapter.service, "connect", function () {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            });
 
             adapter.create(model, {name: "John"});
 
-            $window.indexedDB.open.calledWith('test').should.equal(true);
+            adapter.service.connect.calledWith('test').should.equal(true);
         }));
     });
 
@@ -63,11 +115,35 @@ describe("IndexedDBAdapter", function () {
         it("Should open a connection to the DB with the version specified", inject(function ($injector) {
             provider.setDbVersion(2);
             adapter = $injector.invoke(provider.$get);
-            sinon.stub($window.indexedDB, "open").returns({});
+            adapter.service = mockService;
+
+            sinon.stub(adapter.service, "connect", function () {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            });
 
             adapter.create(model, {name: "John"});
 
-            $window.indexedDB.open.calledWith('recall', 2).should.equal(true);
+            adapter.service.connect.calledWith('recall', 2).should.equal(true);
+        }));
+    });
+
+    describe("setDbSize", function () {
+        it("Should open a connection to the DB with the size specified", inject(function ($injector) {
+            provider.setDbSize(1024);
+            adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
+
+            sinon.stub(adapter.service, "connect", function () {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            });
+
+            adapter.create(model, {name: "John"});
+
+            adapter.service.connect.calledWith('recall', 1, 1024).should.equal(true);
         }));
     });
 
@@ -77,6 +153,7 @@ describe("IndexedDBAdapter", function () {
                 return 'test';
             });
             adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
 
             var response = {};
 
@@ -93,6 +170,7 @@ describe("IndexedDBAdapter", function () {
     describe("Create", function () {
         beforeEach(inject(function ($injector) {
             adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
         }));
 
         it("Should return a promise", function () {
@@ -115,7 +193,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error", function () {
-            mockIndexedDB.api.rejectTransaction();
+            sinon.stub(adapter.service, "create", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.create(model, {name: "John"}).then(null, function (res) {
@@ -130,7 +211,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error when connection fails", function () {
-            mockIndexedDB.api.rejectConnection();
+            sinon.stub(adapter.service, "connect", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.create(model, {name: "John"}).then(null, function (res) {
@@ -148,6 +232,7 @@ describe("IndexedDBAdapter", function () {
     describe("FindOne", function () {
         beforeEach(inject(function ($injector) {
             adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
         }));
 
         it("Should return a promise", function () {
@@ -156,7 +241,12 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should resolve a proper response", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John"});
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John"});
+                return dfd.promise;
+            });
+
             var response = {};
 
             adapter.findOne(model, 1).then(function (res) {
@@ -171,7 +261,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error", function () {
-            mockIndexedDB.api.rejectTransaction();
+            sinon.stub(adapter.service, "findOne", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.findOne(model, 1).then(null, function (res) {
@@ -186,7 +279,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error when connection fails", function () {
-            mockIndexedDB.api.rejectConnection();
+            sinon.stub(adapter.service, "connect", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.findOne(model, 1).then(null, function (res) {
@@ -204,6 +300,7 @@ describe("IndexedDBAdapter", function () {
     describe("Find", function () {
         beforeEach(inject(function ($injector) {
             adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
         }));
 
         it("Should return a promise", function () {
@@ -212,7 +309,12 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should resolve a proper response", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John"});
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+
             var response = {};
 
             adapter.find(model).then(function (res) {
@@ -227,7 +329,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error", function () {
-            mockIndexedDB.api.rejectTransaction();
+            sinon.stub(adapter.service, "find", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.find(model).then(null, function (res) {
@@ -242,7 +347,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error when connection fails", function () {
-            mockIndexedDB.api.rejectConnection();
+            sinon.stub(adapter.service, "connect", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.find(model).then(null, function (res) {
@@ -260,6 +368,7 @@ describe("IndexedDBAdapter", function () {
     describe("Update", function () {
         beforeEach(inject(function ($injector) {
             adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
         }));
 
         it("Should return a promise", function () {
@@ -268,7 +377,12 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should resolve a proper response", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John"});
+            sinon.stub(adapter.service, "update", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John"});
+                return dfd.promise;
+            });
+
             var response = {};
 
             adapter.update(model, 1, {name: "John"}).then(function (res) {
@@ -283,7 +397,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error", function () {
-            mockIndexedDB.api.rejectTransaction();
+            sinon.stub(adapter.service, "update", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.update(model, 1, {name: "John"}).then(null, function (res) {
@@ -298,7 +415,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error when connection fails", function () {
-            mockIndexedDB.api.rejectConnection();
+            sinon.stub(adapter.service, "connect", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.update(model, 1, {name: "John"}).then(null, function (res) {
@@ -316,6 +436,7 @@ describe("IndexedDBAdapter", function () {
     describe("Remove", function () {
         beforeEach(inject(function ($injector) {
             adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
         }));
 
         it("Should return a promise", function () {
@@ -324,8 +445,13 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should resolve a proper response", function () {
+            sinon.stub(adapter.service, "remove", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John"});
+                return dfd.promise;
+            });
+
             var response = {};
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John"});
 
             adapter.remove(model, 1).then(function (res) {
                 response = res;
@@ -341,7 +467,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error", function () {
-            mockIndexedDB.api.rejectTransaction();
+            sinon.stub(adapter.service, "remove", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.remove(model, 1, {name: "John"}).then(null, function (res) {
@@ -356,7 +485,10 @@ describe("IndexedDBAdapter", function () {
         });
 
         it("Should reject with a proper error when connection fails", function () {
-            mockIndexedDB.api.rejectConnection();
+            sinon.stub(adapter.service, "connect", function () {
+                return $q.reject("Error");
+            });
+
             var response = {};
 
             adapter.remove(model, 1).then(null, function (res) {

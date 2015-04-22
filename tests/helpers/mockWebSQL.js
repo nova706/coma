@@ -2,15 +2,22 @@
 window.MockWebSQL = function ($timeout) {
     var noop = function () { return null; };
 
-    var mockTransaction;
-
-    mockTransaction = {
+    var mockTransaction = {
         executeSql: noop
+    };
+
+    var mockDb = {
+        transaction: function (callback) {
+            $timeout(function () {
+                callback(mockTransaction);
+            });
+        }
     };
 
     return {
         api: {
             mockTransaction: mockTransaction,
+            mockDb: mockDb,
             Response: function (items) {
                 this.rows = {
                     length: items.length,
@@ -21,13 +28,7 @@ window.MockWebSQL = function ($timeout) {
             }
         },
         openDatabase: function () {
-            return {
-                transaction: function (callback) {
-                    $timeout(function () {
-                        callback(mockTransaction);
-                    });
-                }
-            };
+            return mockDb;
         }
     };
 };

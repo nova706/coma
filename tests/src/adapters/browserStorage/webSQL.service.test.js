@@ -1,27 +1,28 @@
 /*globals describe, sinon, beforeEach, module, inject, it, should*/
-describe("WebSQLAdapter", function () {
-    var provider;
-    var adapter;
+describe("WebSQLService", function () {
+    var service;
     var $rootScope;
     var $timeout;
+    var $window;
     var mockWebSQL;
     var model;
-    var $window;
 
     var isFunc = function (a) {
         return typeof a === 'function';
     };
 
-    beforeEach(module('recall.adapter.webSQL', function (recallWebSQLAdapterProvider) {
-        provider = recallWebSQLAdapterProvider;
-    }));
+    beforeEach(module('recall.adapter.browserStorage'));
 
-    beforeEach(inject(function (_$rootScope_, _$timeout_, _$window_) {
+    beforeEach(inject(function (_$rootScope_, _$timeout_, _$window_, recallWebSQLService) {
         $rootScope = _$rootScope_;
         $timeout = _$timeout_;
         $window = _$window_;
+
+        service = recallWebSQLService;
+
         mockWebSQL = window.MockWebSQL($timeout);
         $window.openDatabase = mockWebSQL.openDatabase;
+
         model = {
             dataSourceName: "testEndpoint",
             lastModifiedFieldName: "lastModified",
@@ -44,83 +45,9 @@ describe("WebSQLAdapter", function () {
         };
     }));
 
-    it("Should provide the basic CRUD methods", inject(function ($injector) {
-        adapter = $injector.invoke(provider.$get);
-        should.equal(isFunc(adapter.create), true);
-        should.equal(isFunc(adapter.findOne), true);
-        should.equal(isFunc(adapter.find), true);
-        should.equal(isFunc(adapter.update), true);
-        should.equal(isFunc(adapter.remove), true);
-        should.equal(isFunc(adapter.synchronize), true);
-    }));
-
-    describe("setDbName", function () {
-        it("Should open a connection to the DB specified", inject(function ($injector) {
-            provider.setDbName('test');
-            adapter = $injector.invoke(provider.$get);
-            sinon.stub($window, "openDatabase").returns({});
-
-            adapter.create(model, {name: "John"});
-
-            $window.openDatabase.calledWith('test').should.equal(true);
-        }));
-    });
-
-    describe("setDbVersion", function () {
-        it("Should open a connection to the DB with the version specified", inject(function ($injector) {
-            provider.setDbVersion(2);
-            adapter = $injector.invoke(provider.$get);
-            sinon.stub($window, "openDatabase").returns({});
-
-            adapter.create(model, {name: "John"});
-
-            $window.openDatabase.calledWith('recall', '2').should.equal(true);
-        }));
-    });
-
-    describe("setDbSize", function () {
-        it("Should open a connection to the DB with the size specified", inject(function ($injector) {
-            provider.setDbSize(2048);
-            adapter = $injector.invoke(provider.$get);
-            sinon.stub($window, "openDatabase").returns({});
-
-            adapter.create(model, {name: "John"});
-
-            $window.openDatabase.calledWith('recall', '1', 'Recall WebSQL Database', 2048).should.equal(true);
-        }));
-    });
-
-    describe("setPkGenerator", function () {
-        it("Should generate new primary keys with the function specified", inject(function ($injector) {
-            provider.setPkGenerator(function () {
-                return 'test';
-            });
-            adapter = $injector.invoke(provider.$get);
-
-            var theSql;
-            var theParams;
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                theSql = sql;
-                theParams = params;
-                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
-            });
-
-            adapter.create(model, {name: "John"});
-            $timeout.flush();
-            $rootScope.$apply();
-
-            theSql.should.equal("INSERT INTO `" + model.dataSourceName + "` (`id`,`name`) VALUES (?,?)");
-            theParams[0].should.equal("test");
-        }));
-    });
-
     describe("Create", function () {
-        beforeEach(inject(function ($injector) {
-            adapter = $injector.invoke(provider.$get);
-        }));
-
         it("Should return a promise", function () {
-            var promise = adapter.create(model, {name: "John"});
+            var promise = service.create(mockWebSQL.api.mockDb, model, {name: "John"});
             should.equal(isFunc(promise.then), true);
         });
 
@@ -134,12 +61,12 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.create(model, {name: "John", test: "test"});
+            service.create(mockWebSQL.api.mockDb, model, {name: "John", test: "test"});
             $timeout.flush();
             $rootScope.$apply();
 
-            theSql.should.equal("INSERT INTO `" + model.dataSourceName + "` (`id`,`name`) VALUES (?,?)");
-            theParams[1].should.equal("John");
+            theSql.should.equal("INSERT INTO `" + model.dataSourceName + "` (`name`) VALUES (?)");
+            theParams[0].should.equal("John");
         });
 
         it("Should resolve a proper response", function () {
@@ -149,15 +76,13 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{name: "John"}]));
             });
 
-            adapter.create(model, {name: "John"}).then(function (res) {
+            service.create(mockWebSQL.api.mockDb, model, {name: "John"}).then(function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.name.should.equal("John");
-            response.count.should.equal(1);
-            response.status.should.equal(201);
+            response.name.should.equal("John");
         });
 
         it("Should reject with a proper error", function () {
@@ -166,41 +91,19 @@ describe("WebSQLAdapter", function () {
             });
             var response = {};
 
-            adapter.create(model, {name: "John"}).then(null, function (res) {
+            service.create(mockWebSQL.api.mockDb, model, {name: "John"}).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
-        });
-
-        it("Should reject with a proper error when connection fails", function () {
-            var exception = {name: "Error", message: "Error"};
-            sinon.stub($window, "openDatabase").throws(exception);
-            var response = {};
-
-            adapter.create(model, {name: "John"}).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.data.should.equal(exception);
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
     });
 
     describe("FindOne", function () {
-        beforeEach(inject(function ($injector) {
-            adapter = $injector.invoke(provider.$get);
-        }));
-
         it("Should return a promise", function () {
-            var promise = adapter.findOne(model, 1);
+            var promise = service.findOne(mockWebSQL.api.mockDb, model, 1);
             should.equal(isFunc(promise.then), true);
         });
 
@@ -214,7 +117,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.findOne(model, 1);
+            service.findOne(mockWebSQL.api.mockDb, model, 1);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -232,7 +135,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.findOne(model, 1, null, true);
+            service.findOne(mockWebSQL.api.mockDb, model, 1, true);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -247,15 +150,13 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.findOne(model, 1).then(function (res) {
+            service.findOne(mockWebSQL.api.mockDb, model, 1).then(function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.name.should.equal("John");
-            response.count.should.equal(1);
-            response.status.should.equal(200);
+            response.name.should.equal("John");
         });
 
         it("Should resolve a proper response when nothing is found", function () {
@@ -265,15 +166,13 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([]));
             });
 
-            adapter.findOne(model, 1).then(null, function (res) {
+            service.findOne(mockWebSQL.api.mockDb, model, 1).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Not Found");
-            response.count.should.equal(0);
-            response.status.should.equal(404);
+            should.equal(response, null);
         });
 
         it("Should reject with a proper error", function () {
@@ -282,41 +181,19 @@ describe("WebSQLAdapter", function () {
             });
             var response = {};
 
-            adapter.findOne(model, 1).then(null, function (res) {
+            service.findOne(mockWebSQL.api.mockDb, model, 1).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
-        });
-
-        it("Should reject with a proper error when connection fails", function () {
-            var exception = {name: "Error", message: "Error"};
-            sinon.stub($window, "openDatabase").throws(exception);
-            var response = {};
-
-            adapter.findOne(model, 1).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.data.should.equal(exception);
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
     });
 
     describe("Find", function () {
-        beforeEach(inject(function ($injector) {
-            adapter = $injector.invoke(provider.$get);
-        }));
-
         it("Should return a promise", function () {
-            var promise = adapter.find(model);
+            var promise = service.find(mockWebSQL.api.mockDb, model);
             should.equal(isFunc(promise.then), true);
         });
 
@@ -330,7 +207,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.find(model);
+            service.find(mockWebSQL.api.mockDb, model);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -348,7 +225,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.find(model, null, true);
+            service.find(mockWebSQL.api.mockDb, model, true);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -363,15 +240,13 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.find(model).then(function (res) {
+            service.find(mockWebSQL.api.mockDb, model).then(function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data[0].name.should.equal("John");
-            response.count.should.equal(1);
-            response.status.should.equal(200);
+            response[0].name.should.equal("John");
         });
 
         it("Should reject with a proper error", function () {
@@ -380,41 +255,19 @@ describe("WebSQLAdapter", function () {
             });
             var response = {};
 
-            adapter.find(model).then(null, function (res) {
+            service.find(mockWebSQL.api.mockDb, model).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
-        });
-
-        it("Should reject with a proper error when connection fails", function () {
-            var exception = {name: "Error", message: "Error"};
-            sinon.stub($window, "openDatabase").throws(exception);
-            var response = {};
-
-            adapter.find(model).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.data.should.equal(exception);
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
     });
 
     describe("Update", function () {
-        beforeEach(inject(function ($injector) {
-            adapter = $injector.invoke(provider.$get);
-        }));
-
         it("Should return a promise", function () {
-            var promise = adapter.update(model, 1, {name: "John"});
+            var promise = service.update(mockWebSQL.api.mockDb, model, 1, {name: "John"});
             should.equal(isFunc(promise.then), true);
         });
 
@@ -428,7 +281,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.update(model, 1, {name: "John"});
+            service.update(mockWebSQL.api.mockDb, model, 1, {name: "John"});
             $timeout.flush();
             $rootScope.$apply();
 
@@ -447,7 +300,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.update(model, 1, {name: "John"}, true);
+            service.update(mockWebSQL.api.mockDb, model, 1, {name: "John"}, true);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -463,15 +316,13 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.update(model, 1, {name: "John"}).then(function (res) {
+            service.update(mockWebSQL.api.mockDb, model, 1, {name: "John"}).then(function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.name.should.equal("John");
-            response.count.should.equal(1);
-            response.status.should.equal(200);
+            response.name.should.equal("John");
         });
 
         it("Should reject with a proper error", function () {
@@ -480,41 +331,19 @@ describe("WebSQLAdapter", function () {
             });
             var response = {};
 
-            adapter.update(model, 1, {name: "John"}).then(null, function (res) {
+            service.update(mockWebSQL.api.mockDb, model, 1, {name: "John"}).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
-        });
-
-        it("Should reject with a proper error when connection fails", function () {
-            var exception = {name: "Error", message: "Error"};
-            sinon.stub($window, "openDatabase").throws(exception);
-            var response = {};
-
-            adapter.update(model, 1, {name: "John"}).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.data.should.equal(exception);
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
     });
 
     describe("Remove", function () {
-        beforeEach(inject(function ($injector) {
-            adapter = $injector.invoke(provider.$get);
-        }));
-
         it("Should return a promise", function () {
-            var promise = adapter.remove(model, 1);
+            var promise = service.remove(mockWebSQL.api.mockDb, model, 1);
             should.equal(isFunc(promise.then), true);
         });
 
@@ -528,7 +357,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.remove(model, 1);
+            service.remove(mockWebSQL.api.mockDb, model, 1);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -544,7 +373,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.remove(model, 1).then(function (res) {
+            service.remove(mockWebSQL.api.mockDb, model, 1).then(function (res) {
                 response = res;
             }, function (e) {
                 throw e.data;
@@ -552,9 +381,7 @@ describe("WebSQLAdapter", function () {
             $timeout.flush();
             $rootScope.$apply();
 
-            should.equal(response.data, null);
-            response.count.should.equal(1);
-            response.status.should.equal(204);
+            should.equal(response, null);
         });
 
         it("Should reject with a proper error", function () {
@@ -563,41 +390,19 @@ describe("WebSQLAdapter", function () {
             });
             var response = {};
 
-            adapter.remove(model, 1).then(null, function (res) {
+            service.remove(mockWebSQL.api.mockDb, model, 1).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
-        });
-
-        it("Should reject with a proper error when connection fails", function () {
-            var exception = {name: "Error", message: "Error"};
-            sinon.stub($window, "openDatabase").throws(exception);
-            var response = {};
-
-            adapter.remove(model, 1).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.data.should.equal(exception);
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
     });
 
     describe("Synchronize", function () {
-        beforeEach(inject(function ($injector) {
-            adapter = $injector.invoke(provider.$get);
-        }));
-
         it("Should return a promise", function () {
-            var promise = adapter.synchronize(model, [{name: "John"}]);
+            var promise = service.synchronize(mockWebSQL.api.mockDb, model, [{name: "John"}]);
             should.equal(isFunc(promise.then), true);
         });
 
@@ -611,7 +416,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.synchronize(model, [{name: "John"}]);
+            service.synchronize(mockWebSQL.api.mockDb, model, [{name: "John"}]);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -629,7 +434,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
-            adapter.synchronize(model, [{id: 1, name: "John", deleted: true}]);
+            service.synchronize(mockWebSQL.api.mockDb, model, [], [{id: 1, name: "John"}]);
             $timeout.flush();
             $rootScope.$apply();
 
@@ -644,15 +449,13 @@ describe("WebSQLAdapter", function () {
                 failure(mockWebSQL.api.mockTransaction, "Error");
             });
 
-            adapter.synchronize(model, [{id: 1, name: "John", deleted: true}]).then(null, function (res) {
+            service.synchronize(mockWebSQL.api.mockDb, model, [], [{id: 1, name: "John"}]).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
 
         it("Should resolve a proper response", function () {
@@ -662,7 +465,7 @@ describe("WebSQLAdapter", function () {
                 success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{name: "John"}]));
             });
 
-            adapter.synchronize(model, [{name: "John"}]).then(function (res) {
+            service.synchronize(mockWebSQL.api.mockDb, model, [{name: "John"}]).then(function (res) {
                 response = res;
             }, function (e) {
                 throw e.data;
@@ -670,9 +473,7 @@ describe("WebSQLAdapter", function () {
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data[0].name.should.equal("John");
-            response.count.should.equal(1);
-            response.status.should.equal(200);
+            response[0].name.should.equal("John");
         });
 
         it("Should reject with a proper error", function () {
@@ -681,31 +482,13 @@ describe("WebSQLAdapter", function () {
             });
             var response = {};
 
-            adapter.synchronize(model, [{name: "John"}]).then(null, function (res) {
+            service.synchronize(mockWebSQL.api.mockDb, model, [{name: "John"}]).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
             $rootScope.$apply();
 
-            response.data.should.equal("Error");
-            response.count.should.equal(0);
-            response.status.should.equal(500);
-        });
-
-        it("Should reject with a proper error when connection fails", function () {
-            var exception = {name: "Error", message: "Error"};
-            sinon.stub($window, "openDatabase").throws(exception);
-            var response = {};
-
-            adapter.synchronize(model, [{name: "John"}]).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.data.should.equal(exception);
-            response.count.should.equal(0);
-            response.status.should.equal(500);
+            response.should.equal("Error");
         });
     });
 });
