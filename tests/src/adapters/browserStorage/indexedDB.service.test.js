@@ -63,6 +63,7 @@ describe("IndexedDBService", function () {
 
         model = recall.defineModel(modelDef, testAdapter);
         model.setDeletedFieldName("deleted");
+        model.setLastModifiedFieldName("lastModified");
     }));
 
     describe("Migrate", function () {

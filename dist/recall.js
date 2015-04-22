@@ -758,9 +758,9 @@ angular.module("recall.adapter.browserStorage").factory("recallWebSQLService", [
     var webSQLService = {};
     webSQLService.migrate = function(db) {
         var dfd = $q.defer();
-        createTables(db).then(function() {
-            migrateTables(db).then(function() {
-                dfd.resolve();
+        webSQLService.createTables(db).then(function() {
+            webSQLService.migrateTables(db).then(function() {
+                dfd.resolve(null);
             }, function(e) {
                 dfd.reject(e);
             });
@@ -958,54 +958,61 @@ angular.module("recall.adapter.browserStorage").factory("recallWebSQLService", [
         });
         return dfd.promise;
     };
-    var createTables = function(db) {
+    webSQLService.createTables = function(db) {
         var promises = [];
-        db.transaction(function(tx) {
-            var i;
-            var model;
-            var field;
-            var column;
-            var fields;
-            var models = recall.getModels();
-            for (i = 0; i < models.length; i++) {
-                model = models[i];
-                fields = [];
-                for (field in model.fields) {
-                    if (model.fields.hasOwnProperty(field)) {
-                        column = "`" + model.fields[field].name + "`";
-                        switch (model.fields[field].type) {
-                          case "STRING":
-                            column += " TEXT";
-                            break;
+        var operations = [];
+        var i;
+        var model;
+        var field;
+        var column;
+        var fields;
+        var models = recall.getModels();
+        for (i = 0; i < models.length; i++) {
+            model = models[i];
+            fields = [];
+            for (field in model.fields) {
+                if (model.fields.hasOwnProperty(field)) {
+                    column = "`" + model.fields[field].name + "`";
+                    switch (model.fields[field].type) {
+                      case "STRING":
+                        column += " TEXT";
+                        break;
 
-                          case "NUMBER":
-                            column += " REAL";
-                            break;
+                      case "NUMBER":
+                        column += " REAL";
+                        break;
 
-                          case "DATE":
-                            column += " TEXT";
-                            break;
+                      case "DATE":
+                        column += " TEXT";
+                        break;
 
-                          case "BOOLEAN":
-                            column += " INTEGER";
-                            break;
+                      case "BOOLEAN":
+                        column += " INTEGER";
+                        break;
 
-                          default:
-                            return $q.reject("WebSQLService: Migrate - An unknown field type was found.");
-                        }
-                        if (model.fields[field].primaryKey) {
-                            column += " PRIMARY KEY";
-                        }
-                        if (model.fields[field].unique) {
-                            column += " UNIQUE";
-                        }
-                        if (model.fields[field].notNull) {
-                            column += " NOT NULL";
-                        }
-                        fields.push(column);
+                      default:
+                        return $q.reject("WebSQLService: Migrate - An unknown field type was found.");
                     }
+                    if (model.fields[field].primaryKey) {
+                        column += " PRIMARY KEY";
+                    }
+                    if (model.fields[field].unique) {
+                        column += " UNIQUE";
+                    }
+                    if (model.fields[field].notNull) {
+                        column += " NOT NULL";
+                    }
+                    fields.push(column);
                 }
-                promises.push(createTable(model, fields, tx));
+            }
+            operations.push({
+                model: model,
+                fields: fields
+            });
+        }
+        db.transaction(function(tx) {
+            for (i = 0; i < operations.length; i++) {
+                promises.push(createTable(operations[i].model, operations[i].fields, tx));
             }
         });
         return $q.all(promises);
@@ -1078,7 +1085,7 @@ angular.module("recall.adapter.browserStorage").factory("recallWebSQLService", [
         }
         return $q.all(promises);
     };
-    var migrateTables = function(db) {
+    webSQLService.migrateTables = function(db) {
         var dfd = $q.defer();
         db.transaction(function(tx) {
             var sql = "SELECT tbl_name, sql from sqlite_master WHERE type = 'table'";
@@ -1161,15 +1168,10 @@ angular.module("recall.adapter.browserStorage").factory("recallWebSQLService", [
         }
     };
     var convertValueToModel = function(field, sqlResultInstance) {
-        switch (field.type) {
-          case "STRING":
-          case "NUMBER":
-          case "DATE":
-            return sqlResultInstance[field.name];
-
-          case "BOOLEAN":
+        if (field.type === "BOOLEAN") {
             return sqlResultInstance[field.name] === 1;
         }
+        return sqlResultInstance[field.name];
     };
     var getSQLModelObject = function(theModel, result) {
         var field;
