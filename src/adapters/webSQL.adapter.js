@@ -56,6 +56,7 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
             function ($log, $q, $window, recall, AdapterResponse) {
 
                 var adapter = {};
+                var connectionPromise;
                 var db;
 
                 var generatePrimaryKey = providerConfig.pkGenerator;
@@ -74,9 +75,8 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                     return dfd.promise;
                 };
 
-                // Handles version differences in the database and initializes or migrates the db
-                var migrate = function (db) {
-                    var dfd = $q.defer();
+                var createTables = function (db) {
+                    var promises = [];
 
                     db.transaction(function (tx) {
                         var i;
@@ -85,7 +85,6 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                         var column;
                         var fields;
                         var models = recall.getModels();
-                        var promises = [];
 
                         for (i = 0; i < models.length; i++) {
                             model = models[i];
@@ -95,21 +94,21 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                                 if (model.fields.hasOwnProperty(field)) {
                                     column = "`" + model.fields[field].name + "`";
                                     switch (model.fields[field].type) {
-                                        case 'STRING':
-                                            column += ' TEXT';
-                                            break;
-                                        case 'NUMBER':
-                                            column += ' REAL';
-                                            break;
-                                        case 'DATE':
-                                            column += ' TEXT';
-                                            break;
-                                        case 'BOOLEAN':
-                                            column += ' INTEGER';
-                                            break;
-                                        default:
-                                            $log.error('WebSQLAdapter: Migrate - An unknown field type was found.');
-                                            return;
+                                    case 'STRING':
+                                        column += ' TEXT';
+                                        break;
+                                    case 'NUMBER':
+                                        column += ' REAL';
+                                        break;
+                                    case 'DATE':
+                                        column += ' TEXT';
+                                        break;
+                                    case 'BOOLEAN':
+                                        column += ' INTEGER';
+                                        break;
+                                    default:
+                                        $log.error('WebSQLAdapter: Migrate - An unknown field type was found.');
+                                        return;
                                     }
 
                                     if (model.fields[field].primaryKey) {
@@ -126,13 +125,135 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                             }
                             promises.push(createTable(model, fields, tx));
                         }
+                    });
 
-                        $q.all(promises).then(function () {
-                            dfd.resolve();
-                        }, function (e) {
-                            $log.error("WebSQLAdapter: Table Creation Failed", e);
+                    return $q.all(promises);
+                };
+
+                var addColumnToTable = function (modelField, tableName, tx) {
+                    var dfd = $q.defer();
+
+                    var column = "`" + modelField.name + "`";
+                    switch (modelField.type) {
+                    case 'STRING':
+                        column += ' TEXT';
+                        break;
+                    case 'NUMBER':
+                        column += ' REAL';
+                        break;
+                    case 'DATE':
+                        column += ' TEXT';
+                        break;
+                    case 'BOOLEAN':
+                        column += ' INTEGER';
+                        break;
+                    default:
+                        $log.error('WebSQLAdapter: Migrate - An unknown field type was found.');
+                        return;
+                    }
+
+                    if (modelField.primaryKey) {
+                        column += ' PRIMARY KEY';
+                    }
+                    if (modelField.unique) {
+                        column += ' UNIQUE';
+                    }
+                    if (modelField.notNull) {
+                        column += ' NOT NULL';
+                    }
+
+                    var sql = "ALTER TABLE `" + tableName + "` ADD " + column;
+                    $log.debug("WebSQLAdapter: " + sql);
+                    tx.executeSql(sql, [], function () {
+                        dfd.resolve();
+                    }, function (tx, e) {
+                        dfd.reject(e);
+                    });
+
+                    return dfd.promise;
+                };
+
+                var migrateTable = function (model, tableRows, tx) {
+                    var promises = [];
+
+                    var i;
+                    var row;
+                    var tableSQL = null;
+                    for (i = 0; i < tableRows.length; i++) {
+                        row = tableRows[i];
+                        if (row.tbl_name === model.dataSourceName) {
+                            tableSQL = row.sql;
+                            break;
+                        }
+                    }
+
+                    if (tableSQL) {
+                        var field;
+                        var missingFields = [];
+                        for (field in model.fields) {
+                            // TODO: This needs to check if the field name is the same as the model name
+                            if (model.fields.hasOwnProperty(field) && tableSQL.indexOf("`" + field + "`") === -1) {
+                                missingFields.push(model.fields[field]);
+                            }
+                        }
+
+                        for (i = 0; i < missingFields.length; i++) {
+                            promises.push(addColumnToTable(missingFields[i], model.dataSourceName, tx));
+                        }
+                    }
+
+                    return $q.all(promises);
+                };
+
+                var migrateTables = function (db) {
+                    var dfd = $q.defer();
+
+                    db.transaction(function (tx) {
+                        var sql = "SELECT tbl_name, sql from sqlite_master WHERE type = 'table'";
+                        $log.debug("WebSQLAdapter: " + sql);
+                        tx.executeSql(sql, [], function (tx, result) {
+                            var model;
+                            var models = recall.getModels();
+                            var promises = [];
+
+                            var i;
+                            var tableRows = [];
+                            for (i = 0; i < result.rows.length; i++) {
+                                tableRows.push(result.rows.item(i));
+                            }
+
+                            for (i = 0; i < models.length; i++) {
+                                model = models[i];
+                                promises.push(migrateTable(model, tableRows, tx));
+                            }
+
+                            $q.all(promises).then(function () {
+                                dfd.resolve();
+                            }, function (e) {
+                                dfd.reject(e);
+                            });
+                        }, function (tx, e) {
                             dfd.reject(e);
                         });
+                    });
+
+                    return dfd.promise;
+                };
+
+                // Handles version differences in the database and initializes or migrates the db
+                var migrate = function (db) {
+                    var dfd = $q.defer();
+
+                    createTables(db).then(function () {
+                        migrateTables(db).then(function () {
+                            dfd.resolve();
+                        }, function (e) {
+                            $log.error("WebSQLAdapter: Table Migration Failed", e);
+                            dfd.reject(e);
+                        });
+                    }, function (e) {
+                        $log.error("WebSQLAdapter: Table Creation Failed", e);
+                        dfd.reject(e);
                     });
 
                     return dfd.promise;
@@ -144,10 +265,13 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
 
                     if (db) {
                         dfd.resolve(db);
+                    } else if (connectionPromise) {
+                        return connectionPromise;
                     } else {
                         try {
-                            db = $window.openDatabase(providerConfig.dbName, providerConfig.dbVersion.toString(), 'Recall WebSQL Database', providerConfig.dbSize);
-                            migrate(db).then(function () {
+                            var theDb = $window.openDatabase(providerConfig.dbName, providerConfig.dbVersion.toString(), 'Recall WebSQL Database', providerConfig.dbSize);
+                            migrate(theDb).then(function () {
+                                db = theDb;
                                 dfd.resolve(db);
                             }, function (e) {
                                 dfd.reject(e);
@@ -157,6 +281,7 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                         }
                     }
 
+                    connectionPromise = dfd.promise;
                     return dfd.promise;
                 };
 
@@ -197,8 +322,7 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                             var sql = "INSERT INTO `" + theModel.dataSourceName + "` (" + columns.join(',') + ") VALUES (" + placeholders.join(",") +")";
                             $log.debug("WebSQLAdapter: " + sql, columnValues);
                             tx.executeSql(sql, columnValues, function (tx, result) {
-                                var results = transformSQLResult(theModel, result);
-                                response = new AdapterResponse(results[0], 1, AdapterResponse.CREATED);
+                                response = new AdapterResponse(modelInstance, 1, AdapterResponse.CREATED);
                                 $log.debug('WebSQLAdapter: Create ' + theModel.modelName, response);
                                 dfd.resolve(response);
                             }, function (tx, e) {
@@ -294,12 +418,6 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                                 sql += " WHERE `" + theModel.deletedFieldName + "`=0";
                             }
 
-                            if (queryOptions && queryOptions.$orderBy()) {
-                                var field = queryOptions.$orderBy().split(' ')[0];
-                                var dir = queryOptions.$orderBy().split(' ')[1] ? queryOptions.$orderBy().split(' ')[1].toUpperCase() : "ASC";
-                                sql += " ORDER BY `" + field + "` " + dir;
-                            }
-
                             $log.debug("WebSQLAdapter: " + sql);
                             tx.executeSql(sql, [], function (tx, result) {
                                 var results = transformSQLResult(theModel, result);
@@ -310,6 +428,7 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                                 }
                                 $q.all(promises).then(function () {
                                     results = applyFilter(results, filterPredicate);
+                                    results = applyOrderBy(theModel, results, queryOptions);
 
                                     var totalCount = results.length;
 
@@ -662,6 +781,42 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                     return results;
                 };
 
+                // Sorts the data given an $orderBy clause in query options
+                var applyOrderBy = function (theModel, results, queryOptions) {
+                    if (!queryOptions) {
+                        return results;
+                    }
+                    var orderBy = queryOptions.$orderBy();
+                    if (orderBy) {
+                        var property = orderBy.split(' ')[0];
+                        var direction = orderBy.split(' ')[1] || "";
+                        var isDate = false;
+
+                        if (theModel.fields[property] && theModel.fields[property].type === "DATE") {
+                            isDate = true;
+                        }
+
+                        results.sort(function (a, b) {
+                            var aTest = a[property];
+                            var bTest = b[property];
+
+                            if (isDate) {
+                                aTest = new Date(aTest);
+                                bTest = new Date(bTest);
+                            }
+
+                            if (aTest > bTest) {
+                                return (direction.toLowerCase() === 'desc') ? -1 : 1;
+                            }
+                            if (bTest > aTest) {
+                                return (direction.toLowerCase() === 'desc') ? 1 : -1;
+                            }
+                            return 0;
+                        });
+                    }
+                    return results;
+                };
+
                 // Applies paging to a set of results and returns a sliced array of results
                 var applyPaging = function (results, queryOptions) {
                     if (!queryOptions) {
@@ -686,7 +841,7 @@ angular.module('recall.adapter.webSQL', ['recall']).provider('recallWebSQLAdapte
                         }
                         return new Date(modelInstance[field.name]).toISOString();
                     case 'BOOLEAN':
-                        if (modelInstance[field] === true || modelInstance[field] === 1) {
+                        if (modelInstance[field.name] === true || modelInstance[field.name] === 1) {
                             return 1;
                         }
                         return 0;

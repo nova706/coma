@@ -102,7 +102,10 @@ angular.module('recall').factory("recallModel", [
             if (this.lastModifiedFieldName && !lastModifiedField) {
                 this.fields[this.lastModifiedFieldName] = new ModelField(this.lastModifiedFieldName, {
                     type: "DATE",
-                    index: true
+                    index: true,
+                    getDefaultValue: function () {
+                        return new Date().toISOString();
+                    }
                 });
             }
             if (deletedField && deletedField.type !== "BOOLEAN") {
@@ -112,7 +115,10 @@ angular.module('recall').factory("recallModel", [
             if (this.deletedFieldName && !deletedField) {
                 this.fields[this.deletedFieldName] = new ModelField(this.deletedFieldName, {
                     type: "BOOLEAN",
-                    index: true
+                    index: true,
+                    getDefaultValue: function () {
+                        return false;
+                    }
                 });
             }
             return true;

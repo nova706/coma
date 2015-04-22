@@ -59,6 +59,7 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
             function ($log, $q, $window, recall, AdapterResponse) {
 
                 var adapter = {};
+                var connectionPromise;
                 var db;
 
                 var generatePrimaryKey = providerConfig.pkGenerator;
@@ -106,6 +107,8 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
 
                     if (db) {
                         dfd.resolve(db);
+                    } else if (connectionPromise) {
+                        return connectionPromise;
                     } else {
                         var openRequest = $window.indexedDB.open(providerConfig.dbName, providerConfig.dbVersion);
 
@@ -127,6 +130,7 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                         };
                     }
 
+                    connectionPromise = dfd.promise;
                     return dfd.promise;
                 };
 
@@ -269,7 +273,7 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                                 }
                                 $q.all(promises).then(function () {
                                     results = applyFilter(results, filterPredicate);
-                                    results = applyOrderBy(results, queryOptions);
+                                    results = applyOrderBy(theModel, results, queryOptions);
 
                                     var totalCount = results.length;
 
@@ -645,7 +649,7 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                 };
 
                 // Sorts the data given an $orderBy clause in query options
-                var applyOrderBy = function (results, queryOptions) {
+                var applyOrderBy = function (theModel, results, queryOptions) {
                     if (!queryOptions) {
                         return results;
                     }
@@ -653,11 +657,25 @@ angular.module('recall.adapter.indexedDB', ['recall']).provider('recallIndexedDB
                     if (orderBy) {
                         var property = orderBy.split(' ')[0];
                         var direction = orderBy.split(' ')[1] || "";
+                        var isDate = false;
+
+                        if (theModel.fields[property] && theModel.fields[property].type === "DATE") {
+                            isDate = true;
+                        }
+
                         results.sort(function (a, b) {
-                            if (a[property] > b[property]) {
+                            var aTest = a[property];
+                            var bTest = b[property];
+
+                            if (isDate) {
+                                aTest = new Date(aTest);
+                                bTest = new Date(bTest);
+                            }
+
+                            if (aTest > bTest) {
                                 return (direction.toLowerCase() === 'desc') ? -1 : 1;
                             }
-                            if (b[property] > a[property]) {
+                            if (bTest > aTest) {
                                 return (direction.toLowerCase() === 'desc') ? 1 : -1;
                             }
                             return 0;

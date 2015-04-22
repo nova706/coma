@@ -99,9 +99,10 @@ describe("WebSQLAdapter", function () {
 
             var theSql;
             var theParams;
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.create(model, {name: "John"});
@@ -127,9 +128,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.create(model, {name: "John", test: "test"});
@@ -144,7 +146,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([{name: "John"}]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{name: "John"}]));
             });
 
             adapter.create(model, {name: "John"}).then(function (res) {
@@ -160,7 +162,7 @@ describe("WebSQLAdapter", function () {
 
         it("Should reject with a proper error", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
             var response = {};
 
@@ -206,9 +208,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.findOne(model, 1);
@@ -223,9 +226,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.findOne(model, 1, null, true);
@@ -240,7 +244,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.findOne(model, 1).then(function (res) {
@@ -258,7 +262,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([]));
             });
 
             adapter.findOne(model, 1).then(null, function (res) {
@@ -274,7 +278,7 @@ describe("WebSQLAdapter", function () {
 
         it("Should reject with a proper error", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
             var response = {};
 
@@ -320,9 +324,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.find(model);
@@ -337,9 +342,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.find(model, null, true);
@@ -354,7 +360,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.find(model).then(function (res) {
@@ -370,7 +376,7 @@ describe("WebSQLAdapter", function () {
 
         it("Should reject with a proper error", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
             var response = {};
 
@@ -416,9 +422,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.update(model, 1, {name: "John"});
@@ -434,9 +441,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.update(model, 1, {name: "John"}, true);
@@ -452,7 +460,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.update(model, 1, {name: "John"}).then(function (res) {
@@ -468,7 +476,7 @@ describe("WebSQLAdapter", function () {
 
         it("Should reject with a proper error", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
             var response = {};
 
@@ -514,9 +522,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.remove(model, 1);
@@ -532,7 +541,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.remove(model, 1).then(function (res) {
@@ -550,7 +559,7 @@ describe("WebSQLAdapter", function () {
 
         it("Should reject with a proper error", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
             var response = {};
 
@@ -596,9 +605,10 @@ describe("WebSQLAdapter", function () {
             var theSql;
             var theParams;
 
-            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params) {
+            sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.synchronize(model, [{name: "John"}]);
@@ -616,7 +626,7 @@ describe("WebSQLAdapter", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
                 theSql = sql;
                 theParams = params;
-                success();
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{id: 1, name: "John"}]));
             });
 
             adapter.synchronize(model, [{id: 1, name: "John", deleted: true}]);
@@ -631,7 +641,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
 
             adapter.synchronize(model, [{id: 1, name: "John", deleted: true}]).then(null, function (res) {
@@ -649,7 +659,7 @@ describe("WebSQLAdapter", function () {
             var response = {};
 
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success) {
-                success({}, new mockWebSQL.api.Response([{name: "John"}]));
+                success(mockWebSQL.api.mockTransaction, new mockWebSQL.api.Response([{name: "John"}]));
             });
 
             adapter.synchronize(model, [{name: "John"}]).then(function (res) {
@@ -667,7 +677,7 @@ describe("WebSQLAdapter", function () {
 
         it("Should reject with a proper error", function () {
             sinon.stub(mockWebSQL.api.mockTransaction, "executeSql", function (sql, params, success, failure) {
-                failure({}, "Error");
+                failure(mockWebSQL.api.mockTransaction, "Error");
             });
             var response = {};
 

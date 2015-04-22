@@ -8,13 +8,13 @@ angular.module('recall').factory("recallEntity", [
          * An Entity is an object that represents an instance of a Model. The Entity instance exposes save and remove
          * operations as well as dirty checking and validation.
          *
-         * @param {Object} object The object to construct the entity from
+         * @param {Object} [object] The object to construct the entity from
          * @param {Object} model The model that created the Entity
          * @param {Boolean} [persisted = false] Set to true if this model was created from an object that came from an adapter.
          * @constructor
          */
         var Entity = function (object, model, persisted) {
-            model.extendFromRawObject(this, object);
+            model.extendFromRawObject(this, object || {});
 
             Object.defineProperty(this, "$entity", {value: {
                 lastDirtyCheck: new Date().getTime(),
