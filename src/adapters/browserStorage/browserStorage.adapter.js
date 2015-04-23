@@ -262,8 +262,8 @@ angular.module('recall.adapter.browserStorage', ['recall']).provider('recallBrow
                     var dfd = $q.defer();
                     var response;
 
-                    var buildError = function (e) {
-                        response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
+                    var buildError = function (e, status) {
+                        response = new AdapterResponse(e, 0, status || AdapterResponse.INTERNAL_SERVER_ERROR);
                         $log.error('BrowserStorageAdapter: Update ' + theModel.modelName, response, modelInstance);
                         return response;
                     };
@@ -332,6 +332,13 @@ angular.module('recall.adapter.browserStorage', ['recall']).provider('recallBrow
                     var dfd = $q.defer();
                     var response;
 
+                    if (!dataToSync || dataToSync.length === 0) {
+                        response = new AdapterResponse([], 0, AdapterResponse.OK);
+                        $log.debug('BrowserStorageAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
+                        dfd.resolve(response);
+                        return dfd.promise;
+                    }
+
                     var buildError = function (e) {
                         response = new AdapterResponse(e, 0, AdapterResponse.INTERNAL_SERVER_ERROR);
                         $log.error('BrowserStorageAdapter: Synchronize ' + theModel.modelName, response, dataToSync);
@@ -368,7 +375,7 @@ angular.module('recall.adapter.browserStorage', ['recall']).provider('recallBrow
                     var dfd = $q.defer();
 
                     if (instance[association.mappedBy] === undefined) {
-                        instance[association.mappedBy] = null;
+                        instance[association.alias] = null;
                         dfd.resolve();
                         return dfd.promise;
                     }
@@ -392,6 +399,8 @@ angular.module('recall.adapter.browserStorage', ['recall']).provider('recallBrow
                             instance[association.alias] = null;
                             dfd.resolve();
                         }
+                    }, function (e) {
+                        dfd.reject(e);
                     });
 
                     return dfd.promise;
@@ -440,8 +449,8 @@ angular.module('recall.adapter.browserStorage', ['recall']).provider('recallBrow
 
                     if (toExpand) {
                         var association = theModel.getAssociationByAlias(toExpand);
-                        var model = association.getModel();
-                        if (association && model) {
+                        if (association) {
+                            var model = association.getModel();
                             if (association.type === 'hasOne') {
                                 return expandHasOne(model, result, association, db, pathsToExpand);
                             } else if (association.type === 'hasMany') {

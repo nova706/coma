@@ -6,20 +6,32 @@ describe("BrowserStorageAdapter", function () {
     var $timeout;
     var $q;
     var model;
+    var modelDef;
+    var testAdapter;
     var mockService;
+    var Predicate;
+    var PreparedQueryOptions;
 
     var isFunc = function (a) {
         return typeof a === 'function';
+    };
+
+    var resolvedPromiseFunction = function () {
+        var dfd = $q.defer();
+        dfd.resolve();
+        return dfd.promise;
     };
 
     beforeEach(module('recall.adapter.browserStorage', function (recallBrowserStorageAdapterProvider) {
         provider = recallBrowserStorageAdapterProvider;
     }));
 
-    beforeEach(inject(function (_$rootScope_, _$timeout_, _$window_, _$q_) {
+    beforeEach(inject(function (_$rootScope_, _$timeout_, _$window_, _$q_, recall, recallPredicate, recallPreparedQueryOptions) {
         $rootScope = _$rootScope_;
         $timeout = _$timeout_;
         $q = _$q_;
+        Predicate = recallPredicate;
+        PreparedQueryOptions = recallPreparedQueryOptions;
 
         _$window_.indexedDB = false;
         _$window_.openDatabase = true;
@@ -72,15 +84,71 @@ describe("BrowserStorageAdapter", function () {
             }
         };
 
-        model = {
+        modelDef = {
+            name: "testEndpoint",
             dataSourceName: "testEndpoint",
-            lastModifiedFieldName: "lastModified",
-            deletedFieldName: "deleted",
-            primaryKeyFieldName: 'id',
-            getRawModelObject: function (object) {
-                return angular.copy(object);
-            }
+            fields: {
+                id: {
+                    primaryKey: true,
+                    type: "String"
+                },
+                name: "String",
+                date: "Date",
+                index: {
+                    type: "String",
+                    index: "test"
+                }
+            },
+            associations: [
+                {
+                    hasOne: 'otherModel',
+                    as: 'association',
+                    mappedBy: 'otherId'
+                },
+                {
+                    hasMany: 'otherModel',
+                    as: 'many',
+                    mappedBy: 'modelId'
+                }
+            ]
         };
+
+        var otherModelDef = {
+            name: "otherModel",
+            dataSourceName: "otherModel",
+            fields: {
+                id: {
+                    primaryKey: true,
+                    type: "String"
+                },
+                modelId: "String"
+            },
+            associations: [
+                {
+                    hasOne: 'otherModel',
+                    as: 'parent',
+                    mappedBy: 'parentId'
+                },
+                {
+                    hasMany: 'otherModel',
+                    as: 'children',
+                    mappedBy: 'parentId'
+                }
+            ]
+        };
+
+        testAdapter = {
+            create: resolvedPromiseFunction,
+            findOne: resolvedPromiseFunction,
+            find: resolvedPromiseFunction,
+            update: resolvedPromiseFunction,
+            remove: resolvedPromiseFunction
+        };
+
+        var otherModel = recall.defineModel(otherModelDef, testAdapter);
+        model = recall.defineModel(modelDef, testAdapter);
+        model.setDeletedFieldName("deleted");
+        model.setLastModifiedFieldName("lastModified");
     }));
 
     it("Should provide the basic CRUD methods", inject(function ($injector) {
@@ -260,6 +328,148 @@ describe("BrowserStorageAdapter", function () {
             response.status.should.equal(200);
         });
 
+        it("Should resolve a proper response with expanded associations", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John", otherId: 1});
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasMany", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, modelId: 1}]);
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 2, modelId: 2});
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("association,many");
+
+            adapter.findOne(model, 1, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            response.data.association.id.should.equal(2);
+            response.data.many.length.should.equal(1);
+            response.data.many[0].modelId.should.equal(1);
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper response with deep expanded associations", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John"});
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasMany", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, modelId: 1, parentId: 2}]);
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, parentId: 2});
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("many,many.parent,fake");
+
+            adapter.findOne(model, 1, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            response.data.many.length.should.equal(1);
+            response.data.many[0].modelId.should.equal(1);
+            response.data.many[0].parent.id.should.equal(1);
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper response with missing expanded associations", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John"});
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 2, modelId: 2});
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("association");
+
+            adapter.findOne(model, 1, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            should.equal(response.data.association, null);
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper response with not found expanded associations", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John", otherId: 1});
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve(null);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("association");
+
+            adapter.findOne(model, 1, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.name.should.equal("John");
+            should.equal(response.data.association, null);
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error when nothing is found", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve();
+                return dfd.promise;
+            });
+
+            var response = {};
+
+            adapter.findOne(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Not Found");
+            response.count.should.equal(0);
+            response.status.should.equal(404);
+        });
+
         it("Should reject with a proper error", function () {
             sinon.stub(adapter.service, "findOne", function () {
                 return $q.reject("Error");
@@ -268,6 +478,54 @@ describe("BrowserStorageAdapter", function () {
             var response = {};
 
             adapter.findOne(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when expand hasOne fails", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John", otherId: 1});
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasOne", function () {
+                return $q.reject("Error");
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("association");
+
+            adapter.findOne(model, 1, options).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when expand hasMany fails", function () {
+            sinon.stub(adapter.service, "findOne", function () {
+                var dfd = $q.defer();
+                dfd.resolve({id: 1, name: "John"});
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasMany", function () {
+                return $q.reject("Error");
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("many");
+
+            adapter.findOne(model, 1, options).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
@@ -328,6 +586,181 @@ describe("BrowserStorageAdapter", function () {
             response.status.should.equal(200);
         });
 
+        it("Should resolve a proper paged response", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}, {id: 2, name: "Steve"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$skip(1).$top(1);
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(1);
+            response.data[0].name.should.equal("Steve");
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper ordered response", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 2, name: "Steve"}, {id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$orderBy("name");
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(2);
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper ordered response - date", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 2, name: "Steve", date: new Date()}, {id: 1, name: "John", date: new Date()}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$orderBy("date");
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(2);
+            response.data[0].name.should.equal("Steve");
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper ordered response - inverse", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}, {id: 2, name: "Steve"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$orderBy("name");
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(2);
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper ordered response - desc", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 2, name: "Steve"}, {id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$orderBy("name desc");
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(2);
+            response.data[0].name.should.equal("Steve");
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper ordered response - desc inverse", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}, {id: 2, name: "Steve"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$orderBy("name desc");
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(2);
+            response.data[0].name.should.equal("Steve");
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper ordered response - same value", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 2, name: "John"}, {id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$orderBy("name desc");
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(2);
+            response.data[0].id.should.equal(2);
+            response.count.should.equal(2);
+            response.status.should.equal(200);
+        });
+
+        it("Should resolve a proper response when filtering", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$filter(new Predicate("name").notEqualTo("John"));
+
+            adapter.find(model, options).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.length.should.equal(0);
+            response.count.should.equal(0);
+            response.status.should.equal(200);
+        });
+
         it("Should reject with a proper error", function () {
             sinon.stub(adapter.service, "find", function () {
                 return $q.reject("Error");
@@ -336,6 +769,54 @@ describe("BrowserStorageAdapter", function () {
             var response = {};
 
             adapter.find(model).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when expand hasOne fails", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John", otherId: 1}]);
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasOne", function () {
+                return $q.reject("Error");
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("association");
+
+            adapter.find(model, options).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when expand hasMany fails", function () {
+            sinon.stub(adapter.service, "find", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+            sinon.stub(adapter.service, "expandHasMany", function () {
+                return $q.reject("Error");
+            });
+
+            var response = {};
+            var options = new PreparedQueryOptions().$expand("many");
+
+            adapter.find(model, options).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
@@ -394,6 +875,26 @@ describe("BrowserStorageAdapter", function () {
             response.data.name.should.equal("John");
             response.count.should.equal(1);
             response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error when nothing is found", function () {
+            sinon.stub(adapter.service, "update", function () {
+                var dfd = $q.defer();
+                dfd.resolve(null);
+                return dfd.promise;
+            });
+
+            var response = {};
+
+            adapter.update(model, 1, {name: "John"}).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Not Found");
+            response.count.should.equal(0);
+            response.status.should.equal(404);
         });
 
         it("Should reject with a proper error", function () {
@@ -492,6 +993,74 @@ describe("BrowserStorageAdapter", function () {
             var response = {};
 
             adapter.remove(model, 1).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+    });
+
+    describe("Synchronize", function () {
+        beforeEach(inject(function ($injector) {
+            adapter = $injector.invoke(provider.$get);
+            adapter.service = mockService;
+        }));
+
+        it("Should return a promise", function () {
+            var promise = adapter.synchronize(model, []);
+            should.equal(isFunc(promise.then), true);
+        });
+
+        it("Should resolve a proper response", function () {
+            sinon.stub(adapter.service, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve([{id: 1, name: "John"}]);
+                return dfd.promise;
+            });
+
+            var response = {};
+
+            adapter.synchronize(model, [{id: 1, name: "John"}, {id: 2, name: "Steve", deleted: true}]).then(function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data[0].name.should.equal("John");
+            response.count.should.equal(1);
+            response.status.should.equal(200);
+        });
+
+        it("Should reject with a proper error", function () {
+            sinon.stub(adapter.service, "synchronize", function () {
+                return $q.reject("Error");
+            });
+
+            var response = {};
+
+            adapter.synchronize(model, [{id: 1, name: "John"}]).then(null, function (res) {
+                response = res;
+            });
+            $timeout.flush();
+            $rootScope.$apply();
+
+            response.data.should.equal("Error");
+            response.count.should.equal(0);
+            response.status.should.equal(500);
+        });
+
+        it("Should reject with a proper error when connection fails", function () {
+            sinon.stub(adapter.service, "connect", function () {
+                return $q.reject("Error");
+            });
+
+            var response = {};
+
+            adapter.synchronize(model, [{id: 1, name: "John"}]).then(null, function (res) {
                 response = res;
             });
             $timeout.flush();
