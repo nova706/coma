@@ -22,7 +22,7 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
                     for (field in model.fields) {
                         if (model.fields.hasOwnProperty(field)) {
                             if (model.fields[field].unique === true || model.fields[field].index !== false) {
-                                indexName = (model.fields[field].index === true) ? field : model.fields[field].index;
+                                indexName = model.fields[field].index;
                                 objectStore.createIndex(field, indexName, { unique: model.fields[field].unique });
                             }
                         }
@@ -80,7 +80,7 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
             return dfd.promise;
         };
 
-        indexedDBService.findOne = function (db, theModel, pk, includeDeleted) {
+        indexedDBService.findOne = function (db, theModel, pk) {
             var dfd = $q.defer();
 
             var tx = db.transaction([theModel.dataSourceName]);
@@ -88,7 +88,7 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
             var req = store.get(pk);
 
             req.onsuccess = function () {
-                if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
+                if (req.result) {
                     dfd.resolve(req.result);
                 } else {
                     dfd.resolve(null);
@@ -127,35 +127,18 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
             return dfd.promise;
         };
 
-        indexedDBService.update = function (db, theModel, pk, modelInstance, includeDeleted) {
+        indexedDBService.update = function (db, theModel, pk, modelInstance) {
             var dfd = $q.defer();
 
             var tx = db.transaction([theModel.dataSourceName], "readwrite");
             var store = tx.objectStore(theModel.dataSourceName);
-            var req = store.get(pk);
+            modelInstance[theModel.primaryKeyFieldName] = pk;
 
-            req.onsuccess = function () {
-                if (req.result && (includeDeleted || !req.result[theModel.deletedFieldName])) {
-                    var result = req.result;
-                    delete modelInstance[theModel.primaryKeyFieldName];
-                    angular.extend(result, modelInstance);
-
-                    // TODO: Convert all dates to ISO Format
-                    result[theModel.lastModifiedFieldName] = new Date().toISOString();
-                    result = theModel.getRawModelObject(result, false);
-
-                    var updateReq = store.put(result);
-                    updateReq.onsuccess = function () {
-                        dfd.resolve(result);
-                    };
-                    updateReq.onerror = function () {
-                        dfd.reject(this.error);
-                    };
-                } else {
-                    dfd.resolve(null);
-                }
+            var updateReq = store.put(modelInstance);
+            updateReq.onsuccess = function () {
+                dfd.resolve(modelInstance);
             };
-            req.onerror = function () {
+            updateReq.onerror = function () {
                 dfd.reject(this.error);
             };
 
@@ -167,25 +150,10 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
 
             var tx = db.transaction([theModel.dataSourceName], "readwrite");
             var store = tx.objectStore(theModel.dataSourceName);
-            var req = store.get(pk);
 
+            var req = store.delete(pk);
             req.onsuccess = function () {
-                if (req.result && !req.result[theModel.deletedFieldName]) {
-                    var result = req.result;
-
-                    result[theModel.deletedFieldName] = true;
-                    result[theModel.lastModifiedFieldName] = new Date().toISOString();
-
-                    var updateReq = store.put(result);
-                    updateReq.onsuccess = function () {
-                        dfd.resolve(null);
-                    };
-                    updateReq.onerror = function () {
-                        dfd.reject(this.error);
-                    };
-                } else {
-                    dfd.resolve(null);
-                }
+                dfd.resolve(null);
             };
             req.onerror = function () {
                 dfd.reject(this.error);
@@ -194,113 +162,25 @@ angular.module('recall.adapter.browserStorage').factory('recallIndexedDBService'
             return dfd.promise;
         };
 
-        indexedDBService.synchronize = function (db, theModel, merge, remove) {
-            merge = merge || [];
-            remove = remove || [];
-
-            var tx = db.transaction([theModel.dataSourceName], "readwrite");
-            var objectStore = tx.objectStore(theModel.dataSourceName);
-
-            var i;
-            var promises = [];
-            for (i = 0; i < merge.length; i++) {
-                promises.push(createOrUpdate(objectStore, theModel, merge[i]));
-            }
-            for (i = 0; i < remove.length; i++) {
-                promises.push(hardRemove(objectStore, theModel, remove[i][theModel.primaryKeyFieldName]));
-            }
-
-            return $q.all(promises);
-        };
-
-        indexedDBService.expandHasOne = function (db, model, result, association) {
+        indexedDBService.findByAssociation = function (db, model, pk, mappedBy) {
             var dfd = $q.defer();
 
             var tx = db.transaction([model.dataSourceName]);
             var store = tx.objectStore(model.dataSourceName);
-            var req = store.get(result[association.mappedBy]);
-
-            req.onsuccess = function () {
-                if (req.result && !req.result[model.deletedFieldName]) {
-                    dfd.resolve(req.result);
-                } else {
-                    dfd.resolve(null);
-                }
-            };
-            req.onerror = function () {
-                dfd.reject(this.error);
-            };
-
-            return dfd.promise;
-        };
-
-        indexedDBService.expandHasMany = function (db, model, result, association) {
-            var dfd = $q.defer();
-
-            var tx = db.transaction([model.dataSourceName]);
-            var store = tx.objectStore(model.dataSourceName);
-            var index = store.index(association.mappedBy);
+            var index = store.index(mappedBy);
             var req = index.openCursor();
             var results = [];
 
             req.onsuccess = function (event) {
                 var cursor = event.target.result;
                 if (cursor) {
-                    if (!cursor.value[model.deletedFieldName] && cursor.key === result[model.primaryKeyFieldName]) {
+                    if (!cursor.value[model.deletedFieldName] && cursor.key === pk) {
                         results.push(cursor.value);
                     }
                     cursor.continue();
                 } else {
                     dfd.resolve(results);
                 }
-            };
-            req.onerror = function () {
-                dfd.reject(this.error);
-            };
-
-            return dfd.promise;
-        };
-
-        var createOrUpdate = function (objectStore, theModel, modelInstance) {
-            var dfd = $q.defer();
-
-            var req = objectStore.get(modelInstance[theModel.primaryKeyFieldName]);
-            req.onsuccess = function () {
-                var result = req.result;
-                if (result) {
-                    angular.extend(result, modelInstance);
-                    result = theModel.getRawModelObject(result, false);
-
-                    var updateReq = objectStore.put(result);
-                    updateReq.onsuccess = function () {
-                        dfd.resolve(result);
-                    };
-                    updateReq.onerror = function () {
-                        dfd.reject(this.error);
-                    };
-                } else {
-                    var createReq = objectStore.add(modelInstance);
-                    createReq.onsuccess = function () {
-                        dfd.resolve(modelInstance);
-                    };
-                    createReq.onerror = function () {
-                        dfd.reject(this.error);
-                    };
-                }
-            };
-            req.onerror = function () {
-                dfd.reject(this.error);
-            };
-
-            return dfd.promise;
-        };
-
-        var hardRemove = function (objectStore, theModel, pk) {
-            var dfd = $q.defer();
-
-            var req = objectStore.delete(pk);
-            req.onsuccess = function () {
-                dfd.resolve(null);
             };
             req.onerror = function () {
                 dfd.reject(this.error);

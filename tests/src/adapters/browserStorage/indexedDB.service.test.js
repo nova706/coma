@@ -304,32 +304,6 @@ describe("IndexedDBService", function () {
             should.equal(null, response);
         });
 
-        it("Should resolve a proper response when the found result was deleted", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John", deleted: true});
-            var response = {};
-
-            service.findOne(mockIndexedDB.api.mockDatabase, model, 1).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(null, response);
-        });
-
-        it("Should resolve a proper response when the found result was deleted but include deleted is true", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John", deleted: true});
-            var response = {};
-
-            service.findOne(mockIndexedDB.api.mockDatabase, model, 1, true).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.name.should.equal("John");
-        });
-
         it("Should reject with a proper error", function () {
             mockIndexedDB.api.rejectTransaction();
             var response = {};
@@ -422,32 +396,6 @@ describe("IndexedDBService", function () {
             response.name.should.equal("John");
         });
 
-        it("Should resolve a proper response when the found item is deleted", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John", deleted: true});
-            var response = {};
-
-            service.update(mockIndexedDB.api.mockDatabase, model, 1, {name: "John"}).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(null, response);
-        });
-
-        it("Should resolve a proper response when the found item is deleted and include deleted is true", function () {
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John", deleted: true});
-            var response = {};
-
-            service.update(mockIndexedDB.api.mockDatabase, model, 1, {name: "John"}, true).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.name.should.equal("John");
-        });
-
         it("Should reject with a proper error when find fails", function () {
             mockIndexedDB.api.rejectTransaction();
             var response = {};
@@ -510,52 +458,9 @@ describe("IndexedDBService", function () {
             should.equal(response, null);
         });
 
-        it("Should resolve a proper response when the item is deleted", function () {
-            var response = {};
-            mockIndexedDB.api.setTransactionResult({id: 1, name: "John", deleted: true});
-
-            service.remove(mockIndexedDB.api.mockDatabase, model, 1).then(function (res) {
-                response = res;
-            }, function (e) {
-                throw e;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(response, null);
-        });
-
-        it("Should resolve a proper response when the item is not found", function () {
-            var response = {};
-            mockIndexedDB.api.setTransactionResult(null);
-
-            service.remove(mockIndexedDB.api.mockDatabase, model, 1).then(function (res) {
-                response = res;
-            }, function (e) {
-                throw e;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(response, null);
-        });
-
-        it("Should reject with a proper error when find fails", function () {
-            mockIndexedDB.api.rejectTransaction();
-            var response = {};
-
-            service.remove(mockIndexedDB.api.mockDatabase, model, 1, {name: "John"}).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.should.equal("Error");
-        });
-
         it("Should reject with a proper error when update fails", function () {
             mockIndexedDB.api.setTransactionResult({id: 1, name: "John"});
-            sinon.stub(mockIndexedDB.api.mockObjectStore, "put", function () {
+            sinon.stub(mockIndexedDB.api.mockObjectStore, "delete", function () {
                 var toReturn = {
                     onsuccess: function () { return null; },
                     onerror: function () { return null; },
@@ -581,144 +486,9 @@ describe("IndexedDBService", function () {
         });
     });
 
-    describe("Synchronize", function () {
+    describe("FindByAssociation", function () {
         it("Should return a promise", function () {
-            var promise = service.synchronize(mockIndexedDB.api.mockDatabase, model, [{name: "John"}]);
-            should.equal(isFunc(promise.then), true);
-        });
-
-        it("Should resolve a proper response on update", function () {
-            var response = {};
-            mockIndexedDB.api.setTransactionResult({name: "John"});
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, [{name: "John"}]).then(function (res) {
-                response = res;
-            }, function (e) {
-                throw e;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response[0].name.should.equal("John");
-            response.length.should.equal(1);
-        });
-
-        it("Should resolve a proper response on create", function () {
-            var response = {};
-            mockIndexedDB.api.setTransactionResult();
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, [{name: "John"}]).then(function (res) {
-                response = res;
-            }, function (e) {
-                throw e;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response[0].name.should.equal("John");
-            response.length.should.equal(1);
-        });
-
-        it("Should resolve a proper response on delete", function () {
-            var response = {};
-            mockIndexedDB.api.setTransactionResult();
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, null, [{name: "John"}]).then(function (res) {
-                response = res;
-            }, function (e) {
-                throw e;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(response[0], null);
-            response.length.should.equal(1);
-        });
-
-        it("Should reject with an error when delete fails", function () {
-            mockIndexedDB.api.rejectTransaction();
-            var response = {};
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, null, [{id: 1, name: "John"}]).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.should.equal("Error");
-        });
-
-        it("Should reject with an error when find fails", function () {
-            mockIndexedDB.api.rejectTransaction();
-            var response = {};
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, [{name: "John"}]).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.should.equal("Error");
-        });
-
-        it("Should reject with an error when update fails", function () {
-            mockIndexedDB.api.setTransactionResult({name: "John"});
-            sinon.stub(mockIndexedDB.api.mockObjectStore, "put", function () {
-                var toReturn = {
-                    onsuccess: function () { return null; },
-                    onerror: function () { return null; },
-                    result: null,
-                    error: "Error"
-                };
-
-                $timeout(function () {
-                    toReturn.onerror();
-                });
-
-                return toReturn;
-            });
-            var response = {};
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, [{name: "John"}]).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.should.equal("Error");
-        });
-
-        it("Should reject with an error when create fails", function () {
-            mockIndexedDB.api.setTransactionResult();
-            sinon.stub(mockIndexedDB.api.mockObjectStore, "add", function () {
-                var toReturn = {
-                    onsuccess: function () { return null; },
-                    onerror: function () { return null; },
-                    result: null,
-                    error: "Error"
-                };
-
-                $timeout(function () {
-                    toReturn.onerror();
-                });
-
-                return toReturn;
-            });
-            var response = {};
-
-            service.synchronize(mockIndexedDB.api.mockDatabase, model, [{name: "John"}]).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.should.equal("Error");
-        });
-    });
-
-    describe("ExpandHasOne", function () {
-        it("Should return a promise", function () {
-            var promise = service.expandHasOne(mockIndexedDB.api.mockDatabase, model, {name: "John"}, {mappedBy: "aId"});
+            var promise = service.findByAssociation(mockIndexedDB.api.mockDatabase, model, 1, "aId");
             should.equal(isFunc(promise.then), true);
         });
 
@@ -726,66 +496,7 @@ describe("IndexedDBService", function () {
             mockIndexedDB.api.setTransactionResult({name: "John"});
             var response = {};
 
-            service.expandHasOne(mockIndexedDB.api.mockDatabase, model, {name: "John"}, {mappedBy: "aId"}).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.name.should.equal("John");
-        });
-
-        it("Should resolve a proper response when nothing is found", function () {
-            mockIndexedDB.api.setTransactionResult(null);
-            var response = {};
-
-            service.expandHasOne(mockIndexedDB.api.mockDatabase, model, {name: "John"}, {mappedBy: "aId"}).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(response, null);
-        });
-
-        it("Should resolve a proper response when the record found is deleted", function () {
-            mockIndexedDB.api.setTransactionResult({name: "John", deleted: true});
-            var response = {};
-
-            service.expandHasOne(mockIndexedDB.api.mockDatabase, model, {name: "John"}, {mappedBy: "aId"}).then(function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            should.equal(response, null);
-        });
-
-        it("Should reject with an error", function () {
-            mockIndexedDB.api.rejectTransaction();
-            var response = {};
-
-            service.expandHasOne(mockIndexedDB.api.mockDatabase, model, {name: "John"}, {mappedBy: "aId"}).then(null, function (res) {
-                response = res;
-            });
-            $timeout.flush();
-            $rootScope.$apply();
-
-            response.should.equal("Error");
-        });
-    });
-
-    describe("ExpandHasMany", function () {
-        it("Should return a promise", function () {
-            var promise = service.expandHasMany(mockIndexedDB.api.mockDatabase, model, {name: "John"}, {mappedBy: "aId"});
-            should.equal(isFunc(promise.then), true);
-        });
-
-        it("Should resolve a proper response", function () {
-            mockIndexedDB.api.setTransactionResult({name: "John"});
-            var response = {};
-
-            service.expandHasMany(mockIndexedDB.api.mockDatabase, model, {id: "id", name: "John"}, {mappedBy: "aId"}).then(function (res) {
+            service.findByAssociation(mockIndexedDB.api.mockDatabase, model, "id", "aId").then(function (res) {
                 response = res;
             });
             $timeout.flush();
@@ -798,7 +509,7 @@ describe("IndexedDBService", function () {
             mockIndexedDB.api.setTransactionResult();
             var response = {};
 
-            service.expandHasMany(mockIndexedDB.api.mockDatabase, model, {id: "id", name: "John"}, {mappedBy: "aId"}).then(function (res) {
+            service.findByAssociation(mockIndexedDB.api.mockDatabase, model, "id", "aId").then(function (res) {
                 response = res;
             });
             $timeout.flush();
@@ -811,7 +522,7 @@ describe("IndexedDBService", function () {
             mockIndexedDB.api.setTransactionResult({name: "John", deleted: true});
             var response = {};
 
-            service.expandHasMany(mockIndexedDB.api.mockDatabase, model, {id: "id", name: "John"}, {mappedBy: "aId"}).then(function (res) {
+            service.findByAssociation(mockIndexedDB.api.mockDatabase, model, "id", "aId").then(function (res) {
                 response = res;
             });
             $timeout.flush();
@@ -824,7 +535,7 @@ describe("IndexedDBService", function () {
             mockIndexedDB.api.rejectTransaction();
             var response = {};
 
-            service.expandHasMany(mockIndexedDB.api.mockDatabase, model, {id: "id", name: "John"}, {mappedBy: "aId"}).then(null, function (res) {
+            service.findByAssociation(mockIndexedDB.api.mockDatabase, model, "id", "aId").then(null, function (res) {
                 response = res;
             });
             $timeout.flush();

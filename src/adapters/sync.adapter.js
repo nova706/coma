@@ -86,7 +86,6 @@ angular.module('recall.adapter.sync', ['recall']).provider('recallSyncAdapter', 
                     } else {
                         return getSlave().create(theModel, modelInstance);
                     }
-                    // TODO: Sync
                 };
 
                 /**
@@ -148,7 +147,6 @@ angular.module('recall.adapter.sync', ['recall']).provider('recallSyncAdapter', 
                     } else {
                         return getSlave().update(theModel, pk, modelInstance);
                     }
-                    // TODO: Sync
                 };
 
                 /**
@@ -172,22 +170,28 @@ angular.module('recall.adapter.sync', ['recall']).provider('recallSyncAdapter', 
                     } else {
                         return getSlave().remove(theModel, pk);
                     }
-                    // TODO: Sync
                 };
 
                 /**
                  * Manually Syncs the Slave and Master adapters
                  * @param {Object|Array} theModel The model of the entities to synchronize or an array of models to synchronize
+                 * @param {Boolean} [force=false] If true, the last sync time will be cleared before sync effectively synchronizing all data.
                  * @returns {promise} Resolved with an AdapterResponse for each model synchronized
                  */
-                adapter.synchronize = function (theModel) {
+                adapter.synchronize = function (theModel, force) {
                     if (theModel instanceof Array) {
                         var promises = [];
                         var i;
                         for (i = 0; i < theModel.length; i++) {
+                            if (force === true) {
+                                clearLastSyncTime(theModel[i]);
+                            }
                             promises.push(processSyncRequest(theModel[i]));
                         }
                         return $q.all(promises);
+                    }
+                    if (force === true) {
+                        clearLastSyncTime(theModel);
                     }
                     return processSyncRequest(theModel);
                 };
@@ -232,6 +236,14 @@ angular.module('recall.adapter.sync', ['recall']).provider('recallSyncAdapter', 
                  */
                 var updateLastSyncTimeToNow = function (theModel) {
                     localStorage.set(localStorage.keys.LAST_SYNC, new Date().toISOString(), theModel.modelName);
+                };
+
+                /**
+                 * Removes the last sync times so the next sync synchronizes everything
+                 * @param theModel
+                 */
+                var clearLastSyncTime = function (theModel) {
+                    localStorage.remove(localStorage.keys.LAST_SYNC, theModel.modelName);
                 };
 
                 /**

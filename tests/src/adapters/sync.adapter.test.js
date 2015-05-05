@@ -271,6 +271,28 @@ describe("SyncAdapter", function () {
             recallLocalStorage.get.calledWith(recallLocalStorage.keys.LAST_SYNC, model.modelName).should.equal(true);
         }));
 
+        it("Should call find on the slave with the correct args for each model", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var queryOptions;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize([model, model]);
+            $rootScope.$apply();
+
+            slave.find.calledWith(model, queryOptions, true).should.equal(true);
+        }));
+
         it("Should call find on the slave with the correct args", inject(function ($q, recallLocalStorage) {
             sinon.stub(recallLocalStorage, 'get').returns(null);
             var queryOptions;
@@ -291,6 +313,52 @@ describe("SyncAdapter", function () {
             $rootScope.$apply();
 
             slave.find.calledWith(model, queryOptions, true).should.equal(true);
+        }));
+
+        it("Should clear the last sync time when forcing for each model", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'remove');
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var queryOptions;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize([model, model], true);
+            $rootScope.$apply();
+
+            recallLocalStorage.remove.calledWith(recallLocalStorage.keys.LAST_SYNC, model.modelName);
+        }));
+
+        it("Should clear the last sync time when forcing", inject(function ($q, recallLocalStorage) {
+            sinon.stub(recallLocalStorage, 'remove');
+            sinon.stub(recallLocalStorage, 'get').returns(null);
+            var queryOptions;
+
+            sinon.stub(master, "synchronize", function () {
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+            sinon.stub(slave, "find", function (model, options, ignoreDelete) {
+                queryOptions = options;
+                var dfd = $q.defer();
+                dfd.resolve({data: [], count: 0});
+                return dfd.promise;
+            });
+
+            adapter.synchronize(model, true);
+            $rootScope.$apply();
+
+            recallLocalStorage.remove.calledWith(recallLocalStorage.keys.LAST_SYNC, model.modelName);
         }));
 
         it("Should fetch all the items from the slave that have been modified since the lastSyncTime", inject(function ($q, recallLocalStorage) {

@@ -9,6 +9,7 @@ module.exports = function (config) {
             'https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular-mocks.js',
             'tests/helpers/mockIndexedDB.js',
             'tests/helpers/mockWebSQL.js',
+            'tests/helpers/mockDropboxDatastore.js',
             'src/**/*.js',
             'tests/src/**/*.js'
         ],
@@ -26,6 +27,8 @@ module.exports = function (config) {
                 {type: 'text-summary'}
             ]
         },
+
+        browserNoActivityTimeout: 20000,
 
         reporters: ['dots', 'coverage'],
 

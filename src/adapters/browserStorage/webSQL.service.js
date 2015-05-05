@@ -52,7 +52,7 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
                 for (field in theModel.fields) {
                     if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field)) {
                         columns.push("`" + field + "`");
-                        columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
+                        columnValues.push(webSQLService.convertValueToSQL(theModel.fields[field], modelInstance));
                         placeholders.push('?');
                     }
                 }
@@ -68,27 +68,24 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
             return dfd.promise;
         };
 
-        webSQLService.findOne = function (db, theModel, pk, includeDeleted) {
+        webSQLService.findOne = function (db, theModel, pk) {
             var dfd = $q.defer();
 
             db.transaction(function (tx) {
 
                 var sql = "SELECT * FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
-                if (!includeDeleted && theModel.deletedFieldName) {
-                    sql += " AND `" + theModel.deletedFieldName + "`=0";
-                }
-
                 $log.debug("WebSQLService: " + sql, [pk]);
-                tx.executeSql(sql, [pk], function (tx, result) {
-                    var results = transformSQLResult(theModel, result);
+                tx.executeSql(sql, [pk], function (tx, response) {
+                    var results = webSQLService.transformSQLResult(theModel, response);
                     if (results[0]) {
                         dfd.resolve(results[0]);
                     } else {
-                        dfd.reject(null);
+                        dfd.resolve(null);
                     }
                 }, function (tx, e) {
                     dfd.reject(e);
                 });
+
             });
 
             return dfd.promise;
@@ -105,8 +102,8 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
                 }
 
                 $log.debug("WebSQLService: " + sql);
-                tx.executeSql(sql, [], function (tx, result) {
-                    var results = transformSQLResult(theModel, result);
+                tx.executeSql(sql, [], function (tx, response) {
+                    var results = webSQLService.transformSQLResult(theModel, response);
                     dfd.resolve(results);
                 }, function (tx, e) {
                     dfd.reject(e);
@@ -116,35 +113,35 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
             return dfd.promise;
         };
 
-        webSQLService.update = function (db, theModel, pk, modelInstance, includeDeleted) {
+        webSQLService.update = function (db, theModel, pk, modelInstance) {
             var dfd = $q.defer();
 
-            modelInstance = theModel.getRawModelObject(modelInstance, false);
-            modelInstance[theModel.lastModifiedFieldName] = new Date();
-
             db.transaction(function (tx) {
+
                 var columns = [];
+                var columnNames = [];
                 var columnValues = [];
+                var placeholders = [];
                 var field;
                 for (field in theModel.fields) {
                     if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field) && field !== theModel.primaryKeyFieldName) {
                         columns.push("`" + field + "`=?");
-                        columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
+                        columnValues.push(webSQLService.convertValueToSQL(theModel.fields[field], modelInstance));
+                        columnNames.push("`" + field +  "`");
+                        placeholders.push("?");
                     }
                 }
+
                 columnValues.push(pk);
+
                 var sql = "UPDATE `" + theModel.dataSourceName + "` SET " + columns.join(',') + " WHERE `" + theModel.primaryKeyFieldName + "`=?";
-
-                if (!includeDeleted && theModel.deletedFieldName) {
-                    sql += " AND `" + theModel.deletedFieldName + "`=0";
-                }
-
                 $log.debug("WebSQLService: " + sql, columnValues);
                 tx.executeSql(sql, columnValues, function () {
                     dfd.resolve(modelInstance);
                 }, function (tx, e) {
                     dfd.reject(e);
                 });
+
             });
 
             return dfd.promise;
@@ -153,89 +150,34 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
         webSQLService.remove = function (db, theModel, pk) {
             var dfd = $q.defer();
 
-            var columns = ["`" + theModel.lastModifiedFieldName + "`=?", "`" + theModel.deletedFieldName + "`=?"];
-            var columnValues = [new Date().toISOString(), 1, pk];
-
             db.transaction(function (tx) {
 
-                var sql = "UPDATE `" + theModel.dataSourceName + "` SET " + columns.join(',') + " WHERE `" + theModel.primaryKeyFieldName + "`=?";
-
-                $log.debug("WebSQLService: " + sql, columnValues);
-                tx.executeSql(sql, columnValues, function () {
+                var sql = "DELETE FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
+                $log.debug("WebSQLService: " + sql, [pk]);
+                tx.executeSql(sql, [pk], function () {
                     dfd.resolve(null);
                 }, function (tx, e) {
                     dfd.reject(e);
                 });
+
             });
 
             return dfd.promise;
         };
 
-        webSQLService.synchronize = function (db, theModel, merge, remove) {
+        webSQLService.findByAssociation = function (db, model, pk, mappedBy) {
             var dfd = $q.defer();
 
-            merge = merge || [];
-            remove = remove || [];
-
-            db.transaction(function (tx) {
-                var i;
-                var promises = [];
-                for (i = 0; i < merge.length; i++) {
-                    promises.push(createOrUpdate(tx, theModel, merge[i]));
-                }
-                for (i = 0; i < remove.length; i++) {
-                    promises.push(hardRemove(tx, theModel, remove[i][theModel.primaryKeyFieldName]));
-                }
-
-                $q.all(promises).then(function (results) {
-                    dfd.resolve(results);
-                }, function (e) {
-                    dfd.reject(e);
-                });
-            });
-
-            return dfd.promise;
-        };
-
-        webSQLService.expandHasOne = function (db, model, result, association) {
-            var dfd = $q.defer();
-
-            var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + model.primaryKeyFieldName + "`=?";
+            var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + mappedBy + "`=?";
             if (model.deletedFieldName) {
                 sql += " AND `" + model.deletedFieldName + "`=0";
             }
 
-            $log.debug("WebSQLService: " + sql, [result[association.mappedBy]]);
+            $log.debug("WebSQLService: " + sql, [pk]);
 
             db.transaction(function (tx) {
-                tx.executeSql(sql, [result[association.mappedBy]], function (tx, response) {
-                    var results = transformSQLResult(model, response);
-                    if (results[0]) {
-                        dfd.resolve(results[0]);
-                    } else {
-                        dfd.resolve(null);
-                    }
-                }, function (tx, e) {
-                    dfd.reject(e);
-                });
-            });
-
-            return dfd.promise;
-        };
-
-        webSQLService.expandHasMany = function (db, model, result, association) {
-            var dfd = $q.defer();
-
-            var sql = "SELECT * FROM `" + model.dataSourceName + "` WHERE `" + association.mappedBy + "`=?";
-            if (model.deletedFieldName) {
-                sql += " AND `" + model.deletedFieldName + "`=0";
-            }
-
-            $log.debug("WebSQLService: " + sql, [result[model.primaryKeyFieldName]]);
-
-            db.transaction(function (tx) {
-                tx.executeSql(sql, [result[model.primaryKeyFieldName]], function (tx, response) {
-                    var results = transformSQLResult(model, response);
+                tx.executeSql(sql, [pk], function (tx, response) {
+                    var results = webSQLService.transformSQLResult(model, response);
                     dfd.resolve(results);
                 }, function (tx, e) {
                     dfd.reject(e);
@@ -259,7 +201,41 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
             return dfd.promise;
         };
 
+        var getModelFieldSQL = function (modelField) {
+            var modelFieldSQL = "`" + modelField.name + "`";
+            switch (modelField.type) {
+            case 'STRING':
+                modelFieldSQL += ' TEXT';
+                break;
+            case 'NUMBER':
+                modelFieldSQL += ' REAL';
+                break;
+            case 'DATE':
+                modelFieldSQL += ' TEXT';
+                break;
+            case 'BOOLEAN':
+                modelFieldSQL += ' INTEGER';
+                break;
+            default:
+                return false;
+            }
+
+            if (modelField.primaryKey) {
+                modelFieldSQL += ' PRIMARY KEY';
+            }
+            if (modelField.unique) {
+                modelFieldSQL += ' UNIQUE';
+            }
+            if (modelField.notNull) {
+                modelFieldSQL += ' NOT NULL';
+            }
+
+            return modelFieldSQL;
+        };
+
         webSQLService.createTables = function (db) {
+            var dfd = $q.defer();
+
             var promises = [];
             var operations = [];
 
@@ -276,33 +252,12 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
                 fields = [];
                 for (field in model.fields) {
                     if (model.fields.hasOwnProperty(field)) {
-                        column = "`" + model.fields[field].name + "`";
-                        switch (model.fields[field].type) {
-                        case 'STRING':
-                            column += ' TEXT';
-                            break;
-                        case 'NUMBER':
-                            column += ' REAL';
-                            break;
-                        case 'DATE':
-                            column += ' TEXT';
-                            break;
-                        case 'BOOLEAN':
-                            column += ' INTEGER';
-                            break;
-                        default:
+                        column = getModelFieldSQL(model.fields[field]);
+
+                        if (!column) {
                             return $q.reject('WebSQLService: Migrate - An unknown field type was found.');
                         }
 
-                        if (model.fields[field].primaryKey) {
-                            column += ' PRIMARY KEY';
-                        }
-                        if (model.fields[field].unique) {
-                            column += ' UNIQUE';
-                        }
-                        if (model.fields[field].notNull) {
-                            column += ' NOT NULL';
-                        }
                         fields.push(column);
                     }
                 }
@@ -313,40 +268,23 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
                 for (i = 0; i < operations.length; i++) {
                     promises.push(createTable(operations[i].model, operations[i].fields, tx));
                 }
+                $q.all(promises).then(function () {
+                    dfd.resolve();
+                }, function (e) {
+                    dfd.reject(e);
+                });
             });
 
-            return $q.all(promises);
+            return dfd.promise;
         };
 
-        var addColumnToTable = function (modelField, tableName, tx) {
+        webSQLService.addColumnToTable = function (modelField, tableName, tx) {
             var dfd = $q.defer();
 
-            var column = "`" + modelField.name + "`";
-            switch (modelField.type) {
-            case 'STRING':
-                column += ' TEXT';
-                break;
-            case 'NUMBER':
-                column += ' REAL';
-                break;
-            case 'DATE':
-                column += ' TEXT';
-                break;
-            case 'BOOLEAN':
-                column += ' INTEGER';
-                break;
-            default:
-                return $q.reject('WebSQLService: Migrate - An unknown field type was found.');
-            }
+            var column = getModelFieldSQL(modelField);
 
-            if (modelField.primaryKey) {
-                column += ' PRIMARY KEY';
-            }
-            if (modelField.unique) {
-                column += ' UNIQUE';
-            }
-            if (modelField.notNull) {
-                column += ' NOT NULL';
+            if (!column) {
+                return $q.reject('WebSQLService: Migrate - An unknown field type was found.');
             }
 
             var sql = "ALTER TABLE `" + tableName + "` ADD " + column;
@@ -360,7 +298,7 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
             return dfd.promise;
         };
 
-        var migrateTable = function (model, tableRows, tx) {
+        webSQLService.migrateTable = function (model, tableRows, tx) {
             var promises = [];
 
             var i;
@@ -385,7 +323,7 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
                 }
 
                 for (i = 0; i < missingFields.length; i++) {
-                    promises.push(addColumnToTable(missingFields[i], model.dataSourceName, tx));
+                    promises.push(webSQLService.addColumnToTable(missingFields[i], model.dataSourceName, tx));
                 }
             }
 
@@ -411,7 +349,7 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
 
                     for (i = 0; i < models.length; i++) {
                         model = models[i];
-                        promises.push(migrateTable(model, tableRows, tx));
+                        promises.push(webSQLService.migrateTable(model, tableRows, tx));
                     }
 
                     $q.all(promises).then(function () {
@@ -427,47 +365,7 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
             return dfd.promise;
         };
 
-        var createOrUpdate = function (tx, theModel, modelInstance) {
-            var dfd = $q.defer();
-
-            var columns = [];
-            var columnValues = [];
-            var placeholders = [];
-            var field;
-            for (field in theModel.fields) {
-                if (theModel.fields.hasOwnProperty(field) && modelInstance.hasOwnProperty(field)) {
-                    columns.push("`" + field + "`");
-                    columnValues.push(convertValueToSQL(theModel.fields[field], modelInstance));
-                    placeholders.push('?');
-                }
-            }
-            var sql = "INSERT OR REPLACE INTO `" + theModel.dataSourceName + "` (" + columns.join(',') + ") VALUES (" + placeholders.join(",") +")";
-            $log.debug("WebSQLAdapter: " + sql, columnValues);
-            tx.executeSql(sql, columnValues, function (tx, result) {
-                var results = transformSQLResult(theModel, result);
-                dfd.resolve(results[0]);
-            }, function (tx, e) {
-                dfd.reject(e);
-            });
-
-            return dfd.promise;
-        };
-
-        var hardRemove = function (tx, theModel, pk) {
-            var dfd = $q.defer();
-
-            var sql = "DELETE FROM `" + theModel.dataSourceName + "` WHERE `" + theModel.primaryKeyFieldName + "`=?";
-            $log.debug("WebSQLAdapter: " + sql, [pk]);
-            tx.executeSql(sql, [pk], function () {
-                dfd.resolve();
-            }, function (tx, e) {
-                dfd.reject(e);
-            });
-
-            return dfd.promise;
-        };
-
-        var convertValueToSQL = function (field, modelInstance) {
+        webSQLService.convertValueToSQL = function (field, modelInstance) {
             switch (field.type) {
             case 'STRING':
             case 'NUMBER':
@@ -503,11 +401,11 @@ angular.module('recall.adapter.browserStorage').factory('recallWebSQLService', [
             return obj;
         };
 
-        var transformSQLResult = function (theModel, result) {
+        webSQLService.transformSQLResult = function (theModel, response) {
             var results = [];
             var i;
-            for (i = 0; i < result.rows.length; i++) {
-                results.push(getSQLModelObject(theModel, result.rows.item(i)));
+            for (i = 0; i < response.rows.length; i++) {
+                results.push(getSQLModelObject(theModel, response.rows.item(i)));
             }
 
             return results;
