@@ -367,6 +367,16 @@ describe("Model", function () {
             should.equal(result.model, undefined);
         });
 
+        it("Should not add the foreignKey if the association is null", function () {
+            var result = model.getRawModelObject({
+                id: 'id',
+                model: null
+            }, false);
+
+            should.equal(result.modelId, undefined);
+            should.equal(result.model, undefined);
+        });
+
         it("Should return the raw hasOne association if includeExpandedAssociations is true", function () {
             var result = model.getRawModelObject({
                 id: 'id',

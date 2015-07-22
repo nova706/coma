@@ -1,4 +1,4 @@
-/*! recall 05-05-2015 */
+/*! recall 22-07-2015 */
 angular.module("recall", []);
 
 angular.module("recall").factory("recallAdapterResponse", [ function() {
@@ -2472,7 +2472,7 @@ angular.module("recall").factory("recallModel", [ "$log", "$q", "recallAssociati
             alias = this.associations[i].alias;
             ForeignModel = this.associations[i].getModel();
             if (this.associations[i].type === "hasOne") {
-                if (modelEntity[alias] !== undefined) {
+                if (modelEntity[alias] !== undefined && modelEntity[alias] !== null) {
                     foreignKey = modelEntity[alias][ForeignModel.primaryKeyFieldName];
                     object[this.associations[i].mappedBy] = foreignKey;
                     if (includeExpandedAssociations !== false) {
